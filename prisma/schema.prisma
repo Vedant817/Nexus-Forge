@@ -1,0 +1,133 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model Project {
+  id          String   @id @default(cuid())
+  name        String
+  goal        String   @default("")
+  repoUrl     String   @default("")
+  prUrl       String   @default("")
+  status      String   @default("idle")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  sources       Source[]
+  knowledge     KnowledgeSummary?
+  repoAnalysis  RepoAnalysis?
+  workflow      Workflow?
+  releaseReport ReleaseReport?
+  proofPack     ProofPack?
+}
+
+model Source {
+  id         String   @id @default(cuid())
+  projectId  String
+  type       String
+  title      String   @default("")
+  rawContent String
+  documentId String   @default("")
+  createdAt  DateTime @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+model KnowledgeSummary {
+  id                      String   @id @default(cuid())
+  projectId               String   @unique
+  mainTopic               String   @default("")
+  keyConcepts             String   @default("[]")
+  implementationPatterns  String   @default("[]")
+  buildableTasks          String   @default("[]")
+  warningsOrPitfalls      String   @default("[]")
+  termsToUnderstand       String   @default("[]")
+  sourceEvidence          String   @default("[]")
+  recommendedNextAction   String   @default("")
+  rawOutput               String   @default("")
+  createdAt               DateTime @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+model RepoAnalysis {
+  id                    String   @id @default(cuid())
+  projectId             String   @unique
+  repoUrl               String   @default("")
+  detectedStack         String   @default("[]")
+  architectureSummary   String   @default("")
+  importantFiles        String   @default("[]")
+  likelyFeatureLocations String @default("[]")
+  testLocations         String   @default("[]")
+  setupQuality          String   @default("")
+  missingItems          String   @default("[]")
+  risks                 String   @default("[]")
+  maturityScore         Int      @default(0)
+  recommendedFixes      String   @default("[]")
+  rawOutput             String   @default("")
+  createdAt             DateTime @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+model Workflow {
+  id                String   @id @default(cuid())
+  projectId         String   @unique
+  title             String   @default("")
+  objective         String   @default("")
+  tasksJson         String   @default("[]")
+  acceptanceCriteria String  @default("[]")
+  testPlan          String   @default("")
+  expectedFiles     String   @default("[]")
+  reviewChecklist   String   @default("[]")
+  rawOutput         String   @default("")
+  createdAt         DateTime @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+model ReleaseReport {
+  id                        String   @id @default(cuid())
+  projectId                 String   @unique
+  releaseScore              Int      @default(0)
+  decision                  String   @default("")
+  topRisks                  String   @default("[]")
+  missingTests              String   @default("[]")
+  missingDocs               String   @default("[]")
+  configOrEnvIssues         String   @default("[]")
+  backwardCompatibility     String   @default("[]")
+  releaseChecklist          String   @default("[]")
+  releaseNotesDraft         String   @default("")
+  recommendedFixesBeforeMerge String @default("[]")
+  rawOutput                 String   @default("")
+  createdAt                 DateTime @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+model ProofPack {
+  id                String   @id @default(cuid())
+  projectId         String   @unique
+  portfolioSummary  String   @default("")
+  resumeBullet      String   @default("")
+  demoVideoScript   String   @default("")
+  interviewExplanation String @default("")
+  linkedinPost      String   @default("")
+  proofScore        Int      @default(0)
+  missingProofItems String   @default("[]")
+  rawOutput         String   @default("")
+  createdAt         DateTime @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  action    String
+  details   String   @default("")
+  projectId String   @default("")
+  createdAt DateTime @default(now())
+}
