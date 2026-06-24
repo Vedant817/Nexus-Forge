@@ -1,0 +1,148 @@
+import { parseGitHubRepoUrl, parseGitHubPrUrl } from '../security/url-safety'
+import config from '../config/env'
+
+const GITHUB_API = 'https://api.github.com'
+const GITHUB_RAW = 'https://raw.githubusercontent.com'
+
+async function githubFetch(path: string, options?: { timeout?: number }): Promise<Response> {
+  const headers: Record<string, string> = {
+    Accept: 'application/vnd.github.v3+json',
+    'User-Agent': 'praxis-forge/1.0',
+  }
+  if (config.GITHUB_TOKEN) {
+    headers.Authorization = `Bearer ${config.GITHUB_TOKEN}`
+  }
+  const controller = new AbortController()
+  const timeout = options?.timeout ?? 15_000
+  const timer = setTimeout(() => controller.abort(), timeout)
+  try {
+    const res = await fetch(`${GITHUB_API}${path}`, { headers, signal: controller.signal })
+    if (res.status === 403) {
+      const resetTime = res.headers.get('X-RateLimit-Reset')
+      throw new Error(`GitHub API rate limit hit. Resets at ${resetTime ? new Date(parseInt(resetTime) * 1000).toISOString() : 'unknown'}`)
+    }
+    if (res.status === 404) {
+      throw new Error('GitHub repository not found')
+    }
+    if (!res.ok) {
+      throw new Error(`GitHub API error: ${res.status} ${res.statusText}`)
+    }
+    return res
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+export interface RepoContext {
+  name: string
+  description: string
+  defaultBranch: string
+  stars: number
+  language: string | null
+  readme: string
+  tree: string[]
+  packageJson?: string
+  requirementsTxt?: string
+  pyprojectToml?: string
+  dockerfile?: string
+  dockerCompose?: string
+  githubWorkflows: string[]
+  envExample?: string
+}
+
+export async function fetchRepoContext(url: string): Promise<RepoContext> {
+  const parsed = parseGitHubRepoUrl(url)
+  if (!parsed.ok) throw new Error(parsed.error)
+
+  const { owner, repo } = parsed.data
+
+  const repoRes = await githubFetch(`/repos/${owner}/${repo}`)
+  const repoData = await repoRes.json() as any
+
+  const contentsRes = await githubFetch(`/repos/${owner}/${repo}/contents/`)
+  const contents = await contentsRes.json() as any[]
+
+  const tree: string[] = contents.map((item: any) => item.name)
+
+  let readme = ''
+  try {
+    const readmeRes = await githubFetch(`/repos/${owner}/${repo}/readme`)
+    const readmeData = await readmeRes.json() as any
+    readme = Buffer.from(readmeData.content, 'base64').toString('utf-8')
+  } catch { }
+
+  async function fetchFile(path: string): Promise<string | undefined> {
+    try {
+      const res = await fetch(`${GITHUB_RAW}/${owner}/${repo}/${repoData.default_branch}/${path}`)
+      if (res.ok) return await res.text()
+    } catch { }
+    return undefined
+  }
+
+  const importantFiles = ['package.json', 'requirements.txt', 'pyproject.toml', 'Dockerfile', 'docker-compose.yml', '.env.example']
+  const [packageJson, requirementsTxt, pyprojectToml, dockerfile, dockerCompose, envExample] =
+    await Promise.all(importantFiles.map(f => fetchFile(f)))
+
+  let githubWorkflows: string[] = []
+  try {
+    const workflowsRes = await githubFetch(`/repos/${owner}/${repo}/contents/.github/workflows`)
+    const workflows = await workflowsRes.json() as any[]
+    if (Array.isArray(workflows)) {
+      githubWorkflows = workflows.map((w: any) => w.name)
+    }
+  } catch { }
+
+  return {
+    name: repoData.name,
+    description: repoData.description || '',
+    defaultBranch: repoData.default_branch,
+    stars: repoData.stargazers_count ?? 0,
+    language: repoData.language,
+    readme,
+    tree,
+    packageJson,
+    requirementsTxt,
+    pyprojectToml,
+    dockerfile,
+    dockerCompose,
+    githubWorkflows,
+    envExample,
+  }
+}
+
+export interface PRContext {
+  title: string
+  body: string
+  changedFiles: string[]
+  diff: string
+  additions: number
+  deletions: number
+}
+
+export async function fetchPRContext(url: string): Promise<PRContext> {
+  const parsed = parseGitHubPrUrl(url)
+  if (!parsed.ok) throw new Error(parsed.error)
+
+  const { owner, repo, pullNumber } = parsed.data
+
+  const prRes = await githubFetch(`/repos/${owner}/${repo}/pulls/${pullNumber}`)
+  const prData = await prRes.json() as any
+
+  const filesRes = await githubFetch(`/repos/${owner}/${repo}/pulls/${pullNumber}/files`)
+  const files = await filesRes.json() as any[]
+
+  const changedFiles = files.map((f: any) => f.filename)
+  const additions = files.reduce((sum: number, f: any) => sum + (f.additions ?? 0), 0)
+  const deletions = files.reduce((sum: number, f: any) => sum + (f.deletions ?? 0), 0)
+
+  const allDiffs = files.map((f: any) => f.patch || '').filter(Boolean).join('\n\n---\n\n')
+
+  return {
+    title: prData.title ?? '',
+    body: prData.body ?? '',
+    changedFiles,
+    diff: allDiffs,
+    additions,
+    deletions,
+  }
+}
