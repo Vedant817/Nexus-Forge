@@ -98,19 +98,27 @@ export default function WorkflowPage() {
     // Update its status
     movedTask.status = destCol
 
-    // Reorder: remove from old pos, insert to new pos
-    // Wait, since we map over full flat array, it's easier to just change status and reorder in the flat array if needed.
-    // Actually, just changing status is enough for simple kanban if we rely on creation order. 
-    // To preserve exact order within columns, we need to rebuild the full array.
-    const nonAffectedTasks = newTasks.filter(t => t.status !== sourceCol && t.status !== destCol)
-    const newSourceTasks = sourceTasks.filter(t => t.id !== movedTask.id)
-    const destTasks = sourceCol === destCol ? newSourceTasks : newTasks.filter(t => t.status === destCol)
-    
-    destTasks.splice(destination.index, 0, movedTask)
-
-    const finalTasks = [...nonAffectedTasks, ...newSourceTasks, ...destTasks]
-    setTasks(finalTasks)
-    saveTasks(finalTasks)
+    if (sourceCol === destCol) {
+      // Reordering in the same column
+      const nonAffectedTasks = newTasks.filter(t => t.status !== sourceCol)
+      const columnTasks = Array.from(sourceTasks)
+      columnTasks.splice(source.index, 1)
+      columnTasks.splice(destination.index, 0, movedTask)
+      
+      const finalTasks = [...nonAffectedTasks, ...columnTasks]
+      setTasks(finalTasks)
+      saveTasks(finalTasks)
+    } else {
+      // Moving to a different column
+      const nonAffectedTasks = newTasks.filter(t => t.status !== sourceCol && t.status !== destCol)
+      const newSourceTasks = sourceTasks.filter(t => t.id !== movedTask.id)
+      const newDestTasks = newTasks.filter(t => t.status === destCol)
+      newDestTasks.splice(destination.index, 0, movedTask)
+      
+      const finalTasks = [...nonAffectedTasks, ...newSourceTasks, ...newDestTasks]
+      setTasks(finalTasks)
+      saveTasks(finalTasks)
+    }
   }
 
   function toggleAc(taskId: string, index: number) {
