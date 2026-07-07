@@ -21,6 +21,7 @@ export function redactSecrets(text: string): string {
 
 export function isPotentialSecret(value: string): boolean {
   for (const pattern of SECRET_PATTERNS) {
+    pattern.lastIndex = 0
     if (pattern.test(value)) {
       return true
     }

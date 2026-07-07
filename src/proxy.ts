@@ -6,7 +6,7 @@ const ALLOWED_ORIGINS = process.env.CORS_ORIGINS
   ? process.env.CORS_ORIGINS.split(',').map(o => o.trim())
   : undefined
 
-export function proxy(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const origin = request.headers.get('origin') || ''
   const isApiRoute = request.nextUrl.pathname.startsWith('/api')
 
@@ -15,7 +15,7 @@ export function proxy(request: NextRequest) {
       || request.headers.get('x-real-ip')
       || 'anonymous'
     const rateKey = `${ip}:${request.nextUrl.pathname}`
-    const rateCheck = checkRateLimit(rateKey)
+    const rateCheck = await checkRateLimit(rateKey)
     if (!rateCheck.allowed) {
       return new NextResponse(
         JSON.stringify({ error: 'Too many requests. Please slow down.' }),

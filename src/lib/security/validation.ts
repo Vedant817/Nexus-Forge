@@ -14,7 +14,7 @@ export const updateProjectSchema = z.object({
   goal: z.string().max(5000).optional(),
   repoUrl: z.string().max(500).optional(),
   prUrl: z.string().max(500).optional(),
-  status: z.string().optional(),
+  status: z.enum(['idle', 'has_sources', 'analyzing', 'completed', 'error']).optional(),
 })
 
 export const createSourceSchema = z.object({
