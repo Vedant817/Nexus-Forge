@@ -7,7 +7,7 @@ import { runHermesForgePipeline } from '@/lib/workflows/hermes-forge-pipeline'
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
 
-  const rateCheck = checkRateLimit(`analysis:${id}`, { windowMs: 60000, maxRequests: 3 })
+  const rateCheck = await checkRateLimit(`analysis:${id}`, { windowMs: 60000, maxRequests: 3 })
   if (!rateCheck.allowed) {
     return NextResponse.json({ error: 'Rate limit exceeded. Please wait before running analysis again.' }, {
       status: 429,
@@ -34,9 +34,24 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
     await logAudit('analysis_started', 'API: Analysis requested', id)
 
-    const result = await runHermesForgePipeline(id)
+    const TIMEOUT_MS = 5 * 60 * 1000
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('Analysis timed out after 5 minutes')), TIMEOUT_MS)
+    )
+    
+    // Fire and forget
+    Promise.race([runHermesForgePipeline(id), timeoutPromise]).catch(async (err) => {
+      const message = err instanceof Error ? err.message : 'Analysis failed'
+      await logAudit('analysis_failed', message, id)
+      try {
+        await prisma.project.update({
+          where: { id },
+          data: { status: 'error' }
+        })
+      } catch (e) {}
+    })
 
-    return NextResponse.json({ success: true, result })
+    return NextResponse.json({ success: true, message: 'Analysis started in the background' }, { status: 202 })
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Analysis failed'
     await logAudit('analysis_failed', message, id)

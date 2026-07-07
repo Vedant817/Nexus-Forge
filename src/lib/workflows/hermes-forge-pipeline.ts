@@ -34,6 +34,12 @@ export async function runHermesForgePipeline(projectId: string): Promise<Pipelin
   await logAudit('analysis_started', 'Pipeline started', projectId)
 
   try {
+    await prisma.knowledgeSummary.deleteMany({ where: { projectId } }).catch(() => {})
+    await prisma.repoAnalysis.deleteMany({ where: { projectId } }).catch(() => {})
+    await prisma.workflow.deleteMany({ where: { projectId } }).catch(() => {})
+    await prisma.releaseReport.deleteMany({ where: { projectId } }).catch(() => {})
+    await prisma.proofPack.deleteMany({ where: { projectId } }).catch(() => {})
+
     const documentStore = getDocumentStore()
     const agentRunner = await getAgentRunner()
 
