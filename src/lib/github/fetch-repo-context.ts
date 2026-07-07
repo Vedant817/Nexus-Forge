@@ -110,8 +110,11 @@ export async function fetchRepoContext(url: string): Promise<RepoContext> {
 
   async function fetchFile(path: string): Promise<string | undefined> {
     try {
-      const res = await fetch(`${GITHUB_RAW}/${owner}/${repo}/${repoData.default_branch}/${path}`)
-      if (res.ok) return await res.text()
+      const res = await githubFetch(`/repos/${owner}/${repo}/contents/${path}`)
+      const data = await res.json() as { content?: string, encoding?: string }
+      if (data.content && data.encoding === 'base64') {
+        return Buffer.from(data.content, 'base64').toString('utf-8')
+      }
     } catch { }
     return undefined
   }
@@ -172,7 +175,10 @@ export async function fetchPRContext(url: string): Promise<PRContext> {
   const additions = files.reduce((sum: number, f: GithubFileItem) => sum + (f.additions ?? 0), 0)
   const deletions = files.reduce((sum: number, f: GithubFileItem) => sum + (f.deletions ?? 0), 0)
 
-  const allDiffs = files.map((f: GithubFileItem) => f.patch || '').filter(Boolean).join('\n\n---\n\n')
+  let allDiffs = files.map((f: GithubFileItem) => f.patch || '').filter(Boolean).join('\n\n---\n\n')
+  if (allDiffs.length > 50000) {
+    allDiffs = allDiffs.substring(0, 50000) + '\n\n...[Diff truncated due to size limit]...'
+  }
 
   return {
     title: prData.title ?? '',
