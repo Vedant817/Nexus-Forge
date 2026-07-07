@@ -1,7 +1,7 @@
 # Quality Improvement Spec
 
 ## Project
-Praxis Forge — knowledge-to-ship operator
+Hermes Forge — knowledge-to-ship operator
 
 ## Goal
 {expanded goal — what the improvement unit aims to achieve}

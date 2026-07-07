@@ -1,4 +1,4 @@
-# Praxis Forge
+# Hermes Forge
 
 **Knowledge-to-Ship Operator for AI-native builders.**
 
@@ -58,7 +58,7 @@ Built for the **Gappy AI National AI Hackathon** powered by Lemma SDK.
 
 ```bash
 # Clone and install
-cd praxis-forge
+cd hermes-forge
 npm install
 
 # Set up environment
@@ -78,7 +78,7 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `DATABASE_URL` | No | `file:./praxis-forge.db` | SQLite database path |
+| `DATABASE_URL` | No | `file:./hermes-forge.db` | SQLite database path |
 | `GITHUB_TOKEN` | No | — | GitHub personal access token (for higher API rate limits) |
 | `LEMMA_API_KEY` | No | — | Lemma SDK API key (from lemma.work) |
 | `LEMMA_POD_ID` | No | — | Lemma SDK pod ID |
@@ -147,7 +147,7 @@ npm run typecheck   # Type check
 
 ## Lemma SDK Integration
 
-Praxis Forge uses the **real [Lemma SDK](https://www.npmjs.com/package/lemma-sdk)** (`lemma-sdk@0.5.0`) as its primary infrastructure layer:
+Hermes Forge uses the **real [Lemma SDK](https://www.npmjs.com/package/lemma-sdk)** (`lemma-sdk@0.5.0`) as its primary infrastructure layer:
 
 - **Datastore** — Project data managed via `LemmaClient.records` (CRUD on Lemma tables)
 - **Document Store** — Source content stored via `LemmaClient.files` (file upload/download)
