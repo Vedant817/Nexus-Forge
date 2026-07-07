@@ -16,12 +16,19 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   const { id } = await params
   try {
     const body = await request.json()
-    const { tasksJson } = body
-    if (!tasksJson) return NextResponse.json({ error: 'Missing tasksJson' }, { status: 400 })
+    const { tasksJson, completedAcceptanceCriteria } = body
+    
+    const dataToUpdate: any = {}
+    if (tasksJson !== undefined) dataToUpdate.tasksJson = tasksJson
+    if (completedAcceptanceCriteria !== undefined) dataToUpdate.completedAcceptanceCriteria = completedAcceptanceCriteria
+
+    if (Object.keys(dataToUpdate).length === 0) {
+      return NextResponse.json({ error: 'No valid fields provided' }, { status: 400 })
+    }
 
     const updated = await prisma.workflow.update({
       where: { projectId: id },
-      data: { tasksJson }
+      data: dataToUpdate
     })
     return NextResponse.json(updated)
   } catch (err) {

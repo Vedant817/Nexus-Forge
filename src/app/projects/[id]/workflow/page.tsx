@@ -25,6 +25,7 @@ interface WorkflowPageData {
   objective: string
   tasksJson: string
   acceptanceCriteria: string
+  completedAcceptanceCriteria: string
   expectedFiles: string
 }
 
@@ -32,6 +33,7 @@ export default function WorkflowPage() {
   const params = useParams()
   const [data, setData] = useState<WorkflowPageData | null>(null)
   const [tasks, setTasks] = useState<WorkflowTask[]>([])
+  const [completedProjectAcIndices, setCompletedProjectAcIndices] = useState<number[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedTask, setSelectedTask] = useState<WorkflowTask | null>(null)
   const [saving, setSaving] = useState(false)
@@ -42,6 +44,7 @@ export default function WorkflowPage() {
       .then(d => {
         setData(d)
         setTasks(safeParse(d.tasksJson) as WorkflowTask[])
+        setCompletedProjectAcIndices(safeParse(d.completedAcceptanceCriteria) as number[])
       })
       .catch(() => {})
       .finally(() => setLoading(false))
@@ -144,6 +147,27 @@ export default function WorkflowPage() {
     saveTasks(newTasks)
   }
 
+  async function toggleProjectAc(index: number) {
+    const isDone = completedProjectAcIndices.includes(index)
+    const newIndices = isDone 
+      ? completedProjectAcIndices.filter(i => i !== index)
+      : [...completedProjectAcIndices, index]
+    
+    setCompletedProjectAcIndices(newIndices)
+    setSaving(true)
+    try {
+      await fetch(`/api/projects/${params.id}/workflow`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ completedAcceptanceCriteria: JSON.stringify(newIndices) })
+      })
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setSaving(false)
+    }
+  }
+
   return (
     <div className="container mx-auto px-4 py-8 max-w-[1400px]">
       <div className="flex items-center justify-between mb-6">
@@ -154,7 +178,7 @@ export default function WorkflowPage() {
         <Button
           variant="outline"
           onClick={() => {
-            window.open(`/api/projects/${params.id}/export/workflow.md`, "_blank")
+            window.open(`/api/projects/${params.id}/export/workflow`, "_blank")
           }}
         >
           Export Markdown
@@ -234,15 +258,34 @@ export default function WorkflowPage() {
 
       <div className="grid md:grid-cols-2 gap-4">
         <Card>
-          <CardHeader><CardTitle>Project Acceptance Criteria</CardTitle></CardHeader>
+          <CardHeader>
+            <CardTitle className="flex items-center justify-between">
+              Project Acceptance Criteria
+              <span className="text-sm font-normal text-muted-foreground">
+                {completedProjectAcIndices.length} / {criteria.length}
+              </span>
+            </CardTitle>
+          </CardHeader>
           <CardContent>
+            <p className="text-xs text-muted-foreground mb-4 -mt-2">
+              These are the global requirements for this workflow. Check them off as you complete the project.
+            </p>
             <ul className="space-y-2">
-              {criteria.map((c: string, i: number) => (
-                <li key={i} className="text-sm flex items-start gap-3 text-muted-foreground">
-                  <span className="mt-0.5 w-4 h-4 rounded-full border border-primary/50 flex-shrink-0" /> 
-                  <span>{c}</span>
-                </li>
-              ))}
+              {criteria.map((c: string, i: number) => {
+                const isDone = completedProjectAcIndices.includes(i)
+                return (
+                  <li 
+                    key={i} 
+                    className="text-sm flex items-start gap-3 text-muted-foreground cursor-pointer hover:bg-slate-50 p-2 rounded-md transition-colors"
+                    onClick={() => toggleProjectAc(i)}
+                  >
+                    <div className={`mt-0.5 shrink-0 ${isDone ? "text-green-600" : "text-muted-foreground"}`}>
+                      {isDone ? <CheckCircle2 className="w-4 h-4" /> : <Circle className="w-4 h-4" />}
+                    </div>
+                    <span className={isDone ? "line-through opacity-70" : ""}>{c}</span>
+                  </li>
+                )
+              })}
             </ul>
           </CardContent>
         </Card>

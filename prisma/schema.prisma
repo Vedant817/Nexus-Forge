@@ -80,6 +80,7 @@ model Workflow {
   objective         String   @default("")
   tasksJson         String   @default("[]")
   acceptanceCriteria String  @default("[]")
+  completedAcceptanceCriteria String @default("[]")
   testPlan          String   @default("")
   expectedFiles     String   @default("[]")
   reviewChecklist   String   @default("[]")
