@@ -48,6 +48,34 @@ export default function ProofPage() {
         </Button>
       </div>
 
+      <Card className="mb-6 border-indigo-100 bg-indigo-50/30">
+        <CardHeader>
+          <CardTitle className="text-indigo-800 text-lg">Auto-Marketing: GitHub Webhook</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-indigo-700 mb-4">
+            Want automatic updates to your LinkedIn Post and Resume Bullet every time you merge code? 
+            Add this Webhook URL to your GitHub repository (Settings {">"} Webhooks {">"} Add Webhook). 
+            Select <strong>Content type: application/json</strong> and send only <strong>Pull Request</strong> events.
+          </p>
+          <div className="flex items-center gap-2">
+            <code className="text-xs bg-white p-2 rounded border flex-1 overflow-x-auto text-indigo-900 font-mono">
+              {typeof window !== 'undefined' ? window.location.origin : ''}/api/webhooks/github?projectId={params.id}
+            </code>
+            <Button 
+              variant="outline" 
+              className="shrink-0 bg-white"
+              onClick={() => {
+                navigator.clipboard.writeText(`${window.location.origin}/api/webhooks/github?projectId=${params.id}`)
+                alert("Webhook URL copied to clipboard!")
+              }}
+            >
+              Copy URL
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
       <Card className="mb-6">
         <CardHeader><CardTitle>Proof Score</CardTitle></CardHeader>
         <CardContent>

@@ -78,8 +78,9 @@ export default function ProjectPage() {
   const sections = [
     { href: `/projects/${project.id}/intake`, label: "Intake", desc: `${project.sources.length} source(s)`, ready: true, emptyText: "" },
     { href: `/projects/${project.id}/knowledge`, label: "Knowledge", desc: "Distilled learning", ready: !!project.knowledge, emptyText: "No data" },
-    { href: `/projects/${project.id}/workflow`, label: "Workflow", desc: "Build tasks & prompts", ready: !!project.workflow, emptyText: "No data" },
     { href: `/projects/${project.id}/repo-review`, label: "Repo Review", desc: "Maturity analysis", ready: !!project.repoAnalysis, emptyText: !project.repoUrl ? "Requires Repo URL" : "No data" },
+    { href: `/projects/${project.id}/architecture`, label: "Architecture", desc: "Living codebase map", ready: !!project.repoAnalysis, emptyText: "Requires Repo Review" },
+    { href: `/projects/${project.id}/workflow`, label: "Workflow", desc: "Build tasks & prompts", ready: !!project.workflow, emptyText: "No data" },
     { href: `/projects/${project.id}/release`, label: "Release", desc: "Readiness report", ready: !!project.releaseReport, emptyText: !project.prUrl ? "Requires PR URL" : "No data" },
     { href: `/projects/${project.id}/proof`, label: "Proof Pack", desc: "Portfolio output", ready: !!project.proofPack, emptyText: "No data" },
   ]

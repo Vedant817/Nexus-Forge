@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd"
-import { Trash2, CheckCircle2, Circle } from "lucide-react"
+import { Trash2, CheckCircle2, Circle, Download, Code2 } from "lucide-react"
 
 interface WorkflowTask {
   id: string
@@ -175,14 +175,27 @@ export default function WorkflowPage() {
           <h1 className="text-3xl font-bold">Workflow Board</h1>
           {saving && <span className="text-xs text-muted-foreground animate-pulse">Saving...</span>}
         </div>
-        <Button
-          variant="outline"
-          onClick={() => {
-            window.open(`/api/projects/${params.id}/export/workflow`, "_blank")
-          }}
-        >
-          Export Markdown
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            className="border-indigo-200 text-indigo-700 hover:bg-indigo-50"
+            onClick={() => {
+              window.open(`/api/projects/${params.id}/export/cursorrules`, "_blank")
+            }}
+          >
+            <Code2 className="w-4 h-4 mr-2" />
+            Sync to IDE (.cursorrules)
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => {
+              window.open(`/api/projects/${params.id}/export/workflow`, "_blank")
+            }}
+          >
+            <Download className="w-4 h-4 mr-2" />
+            Export Markdown
+          </Button>
+        </div>
       </div>
 
       <Card className="mb-6">
