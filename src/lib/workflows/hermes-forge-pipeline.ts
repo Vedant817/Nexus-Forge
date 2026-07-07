@@ -12,7 +12,7 @@ import type {
   ProofOfWorkInput,
 } from '@/types'
 
-export async function runPraxisForgePipeline(projectId: string): Promise<PipelineResult> {
+export async function runHermesForgePipeline(projectId: string): Promise<PipelineResult> {
   const project = await prisma.project.findUnique({
     where: { id: projectId },
     include: { sources: true },
@@ -35,7 +35,7 @@ export async function runPraxisForgePipeline(projectId: string): Promise<Pipelin
 
   try {
     const documentStore = getDocumentStore()
-    const agentRunner = getAgentRunner()
+    const agentRunner = await getAgentRunner()
 
     for (const source of project.sources) {
       await documentStore.store(source.id, source.rawContent, {
@@ -59,6 +59,7 @@ export async function runPraxisForgePipeline(projectId: string): Promise<Pipelin
       ...knowledgeOutput,
       sourceEvidence: knowledgeOutput.sourceEvidence.map(s => redactSecrets(s)),
     }
+    Object.assign(knowledgeOutput, redactedKnowledge)
 
     await prisma.knowledgeSummary.upsert({
       where: { projectId },

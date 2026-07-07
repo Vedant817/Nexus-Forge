@@ -6,9 +6,26 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 
+interface BuildableTask {
+  title: string
+  description: string
+  evidence?: string
+}
+
+interface KnowledgePageData {
+  mainTopic: string
+  keyConcepts: string
+  implementationPatterns: string
+  buildableTasks: string
+  warningsOrPitfalls: string
+  termsToUnderstand: string
+  sourceEvidence: string
+  recommendedNextAction?: string
+}
+
 export default function KnowledgePage() {
   const params = useParams()
-  const [data, setData] = useState<any>(null)
+  const [data, setData] = useState<KnowledgePageData | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -22,12 +39,12 @@ export default function KnowledgePage() {
   if (loading) return <div className="flex items-center justify-center min-h-[60vh]"><div className="text-muted-foreground">Loading...</div></div>
   if (!data) return <div className="flex items-center justify-center min-h-[60vh]"><div className="text-muted-foreground">No knowledge summary yet. Run analysis first.</div></div>
 
-  const concepts = safeParse(data.keyConcepts)
-  const patterns = safeParse(data.implementationPatterns)
-  const tasks = safeParse(data.buildableTasks)
-  const warnings = safeParse(data.warningsOrPitfalls)
-  const terms = safeParse(data.termsToUnderstand)
-  const evidence = safeParse(data.sourceEvidence)
+  const concepts = safeParse(data.keyConcepts) as string[]
+  const patterns = safeParse(data.implementationPatterns) as string[]
+  const tasks = safeParse(data.buildableTasks) as BuildableTask[]
+  const warnings = safeParse(data.warningsOrPitfalls) as string[]
+  const terms = safeParse(data.termsToUnderstand) as string[]
+  const evidence = safeParse(data.sourceEvidence) as string[]
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-4xl">
@@ -68,7 +85,7 @@ export default function KnowledgePage() {
         <CardContent>
           {tasks.length > 0 ? (
             <div className="space-y-3">
-              {tasks.map((t: any, i: number) => (
+              {tasks.map((t: BuildableTask, i: number) => (
                 <div key={i} className="p-3 rounded-md border">
                   <h3 className="font-medium">{t.title}</h3>
                   <p className="text-sm text-muted-foreground mt-1">{t.description}</p>
@@ -126,6 +143,6 @@ export default function KnowledgePage() {
   )
 }
 
-function safeParse(json: string): any[] {
-  try { return JSON.parse(json) } catch { return [] }
+function safeParse(json: string): unknown[] {
+  try { return JSON.parse(json) as unknown[] } catch { return [] }
 }

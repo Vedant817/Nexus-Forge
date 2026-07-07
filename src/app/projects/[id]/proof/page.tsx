@@ -3,12 +3,21 @@
 import { useEffect, useState } from "react"
 import { useParams } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+
+interface ProofPageData {
+  portfolioSummary: string
+  resumeBullet: string
+  demoVideoScript: string
+  interviewExplanation: string
+  linkedinPost: string
+  proofScore: number
+  missingProofItems: string
+}
 
 export default function ProofPage() {
   const params = useParams()
-  const [data, setData] = useState<any>(null)
+  const [data, setData] = useState<ProofPageData | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -22,7 +31,7 @@ export default function ProofPage() {
   if (loading) return <div className="flex items-center justify-center min-h-[60vh]"><div className="text-muted-foreground">Loading...</div></div>
   if (!data) return <div className="flex items-center justify-center min-h-[60vh]"><div className="text-muted-foreground">No proof pack yet. Run analysis first.</div></div>
 
-  const missing = safeParse(data.missingProofItems)
+  const missing = safeParse(data.missingProofItems) as string[]
   const scoreColor = data.proofScore >= 70 ? "text-green-600" : data.proofScore >= 40 ? "text-yellow-600" : "text-red-600"
 
   return (
@@ -99,6 +108,6 @@ export default function ProofPage() {
   )
 }
 
-function safeParse(json: string): any[] {
-  try { return JSON.parse(json) } catch { return [] }
+function safeParse(json: string): unknown[] {
+  try { return JSON.parse(json) as unknown[] } catch { return [] }
 }

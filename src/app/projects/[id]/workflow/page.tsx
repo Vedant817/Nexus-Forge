@@ -6,9 +6,28 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 
+interface WorkflowTask {
+  id: string
+  title: string
+  status: string
+  priority: string
+  description: string
+  reason: string
+  acceptanceCriteria: string[]
+  suggestedAgentPrompt: string
+}
+
+interface WorkflowPageData {
+  title: string
+  objective: string
+  tasksJson: string
+  acceptanceCriteria: string
+  expectedFiles: string
+}
+
 export default function WorkflowPage() {
   const params = useParams()
-  const [data, setData] = useState<any>(null)
+  const [data, setData] = useState<WorkflowPageData | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -22,9 +41,9 @@ export default function WorkflowPage() {
   if (loading) return <div className="flex items-center justify-center min-h-[60vh]"><div className="text-muted-foreground">Loading...</div></div>
   if (!data) return <div className="flex items-center justify-center min-h-[60vh]"><div className="text-muted-foreground">No workflow yet. Run analysis first.</div></div>
 
-  const tasks = safeParse(data.tasksJson)
-  const criteria = safeParse(data.acceptanceCriteria)
-  const files = safeParse(data.expectedFiles)
+  const tasks = safeParse(data.tasksJson) as WorkflowTask[]
+  const criteria = safeParse(data.acceptanceCriteria) as string[]
+  const files = safeParse(data.expectedFiles) as string[]
 
   const columns = ["planned", "in_progress", "needs_review", "done"]
   const columnLabels: Record<string, string> = {
@@ -69,7 +88,7 @@ export default function WorkflowPage() {
               {columnLabels[col]}
             </h3>
             <div className="space-y-3">
-              {tasks.filter((t: any) => t.status === col).map((task: any) => (
+              {tasks.filter((t: WorkflowTask) => t.status === col).map((task: WorkflowTask) => (
                 <Card key={task.id} className="border-l-4" style={{
                   borderLeftColor: task.priority === "critical" ? "var(--destructive)" : task.priority === "high" ? "#f59e0b" : "#6366f1",
                 }}>
@@ -138,6 +157,6 @@ export default function WorkflowPage() {
   )
 }
 
-function safeParse(json: string): any[] {
-  try { return JSON.parse(json) } catch { return [] }
+function safeParse(json: string): unknown[] {
+  try { return JSON.parse(json) as unknown[] } catch { return [] }
 }

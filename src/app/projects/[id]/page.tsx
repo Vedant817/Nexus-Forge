@@ -1,12 +1,13 @@
 "use client"
 
-import { useEffect, useState, useRef, useCallback } from "react"
+import { useEffect, useState } from "react"
 import { useParams, notFound as nextNotFound } from "next/navigation"
 import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { ErrorBoundary } from "@/components/ErrorBoundary"
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts"
 
 interface ProjectDetail {
   id: string
@@ -16,11 +17,11 @@ interface ProjectDetail {
   prUrl: string
   status: string
   sources: { id: string; type: string; title: string }[]
-  knowledge: any
-  repoAnalysis: any
-  workflow: any
-  releaseReport: any
-  proofPack: any
+  knowledge: Record<string, unknown> | null
+  repoAnalysis: Record<string, unknown> | null
+  workflow: Record<string, unknown> | null
+  releaseReport: Record<string, unknown> | null
+  proofPack: Record<string, unknown> | null
   createdAt: string
   updatedAt: string
 }
@@ -29,58 +30,56 @@ export default function ProjectPage() {
   const params = useParams()
   const [project, setProject] = useState<ProjectDetail | null>(null)
   const [loading, setLoading] = useState(true)
-  const [running, setRunning] = useState(false)
+  const [optimisticAnalyzing, setOptimisticAnalyzing] = useState(false)
   const [isNotFound, setIsNotFound] = useState(false)
   const [error, setError] = useState("")
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  const loadProject = useCallback(async () => {
-    try {
-      const res = await fetch(`/api/projects/${params.id}`)
-      if (res.status === 404) { setIsNotFound(true); return }
-      if (!res.ok) throw new Error("Failed to load")
-      setProject(await res.json())
-    } catch {
-      setError("Failed to load project")
-    } finally {
-      setLoading(false)
-    }
-  }, [params.id])
-
-  useEffect(() => { loadProject() }, [loadProject])
+  const isAnalyzing = project?.status === "analyzing" || optimisticAnalyzing
+  const canRunAnalysis = !isAnalyzing && !optimisticAnalyzing && (project?.sources?.length ?? 0) > 0
 
   useEffect(() => {
-    if (project?.status === "analyzing") {
-      pollRef.current = setInterval(() => {
-        loadProject()
+    fetch(`/api/projects/${params.id}`)
+      .then(res => {
+        if (res.status === 404) { setIsNotFound(true); return null }
+        if (!res.ok) throw new Error("Failed to load")
+        return res.json()
+      })
+      .then(data => { if (data) { setProject(data); if (data.status !== "analyzing") setOptimisticAnalyzing(false) } })
+      .catch(() => setError("Failed to load project"))
+      .finally(() => setLoading(false))
+  }, [params.id])
+
+  useEffect(() => {
+    if (isAnalyzing) {
+      const id = setInterval(() => {
+        fetch(`/api/projects/${params.id}`)
+          .then(res => res.ok ? res.json() : null)
+          .then(data => { if (data) { setProject(data); if (data.status !== "analyzing") setOptimisticAnalyzing(false) } })
       }, 2000)
-    } else {
-      if (pollRef.current) {
-        clearInterval(pollRef.current)
-        pollRef.current = null
-      }
-      if (running) setRunning(false)
+      return () => clearInterval(id)
     }
-    return () => {
-      if (pollRef.current) clearInterval(pollRef.current)
-    }
-  }, [project?.status, loadProject, running])
+  }, [isAnalyzing, params.id])
 
   if (isNotFound) nextNotFound()
   if (loading) return <LoadingSkeleton />
   if (!project) return <NotFoundState />
 
-  const isAnalyzing = project.status === "analyzing"
-  const canRunAnalysis = !isAnalyzing && !running && project.sources.length > 0
-
   const sections = [
-    { href: `/projects/${project.id}/intake`, label: "Intake", desc: `${project.sources.length} source(s)`, ready: true },
-    { href: `/projects/${project.id}/knowledge`, label: "Knowledge", desc: "Distilled learning", ready: !!project.knowledge },
-    { href: `/projects/${project.id}/workflow`, label: "Workflow", desc: "Build tasks & prompts", ready: !!project.workflow },
-    { href: `/projects/${project.id}/repo-review`, label: "Repo Review", desc: "Maturity analysis", ready: !!project.repoAnalysis },
-    { href: `/projects/${project.id}/release`, label: "Release", desc: "Readiness report", ready: !!project.releaseReport },
-    { href: `/projects/${project.id}/proof`, label: "Proof Pack", desc: "Portfolio output", ready: !!project.proofPack },
+    { href: `/projects/${project.id}/intake`, label: "Intake", desc: `${project.sources.length} source(s)`, ready: true, emptyText: "" },
+    { href: `/projects/${project.id}/knowledge`, label: "Knowledge", desc: "Distilled learning", ready: !!project.knowledge, emptyText: "No data" },
+    { href: `/projects/${project.id}/workflow`, label: "Workflow", desc: "Build tasks & prompts", ready: !!project.workflow, emptyText: "No data" },
+    { href: `/projects/${project.id}/repo-review`, label: "Repo Review", desc: "Maturity analysis", ready: !!project.repoAnalysis, emptyText: !project.repoUrl ? "Requires Repo URL" : "No data" },
+    { href: `/projects/${project.id}/release`, label: "Release", desc: "Readiness report", ready: !!project.releaseReport, emptyText: !project.prUrl ? "Requires PR URL" : "No data" },
+    { href: `/projects/${project.id}/proof`, label: "Proof Pack", desc: "Portfolio output", ready: !!project.proofPack, emptyText: "No data" },
   ]
+
+  const chartData = []
+  if (project.repoAnalysis && typeof (project.repoAnalysis as any).maturityScore === 'number') {
+    chartData.push({ name: 'Maturity', score: (project.repoAnalysis as any).maturityScore })
+  }
+  if (project.proofPack && typeof (project.proofPack as any).proofScore === 'number') {
+    chartData.push({ name: 'Proof', score: (project.proofPack as any).proofScore })
+  }
 
   return (
     <ErrorBoundary>
@@ -127,31 +126,50 @@ export default function ProjectPage() {
                 </CardHeader>
                 <CardContent>
                   <p className="text-sm text-muted-foreground">{s.desc}</p>
-                  {!s.ready && project.status === "completed" && <Badge variant="outline" className="mt-2">No data</Badge>}
+                  {!s.ready && project.status === "completed" && <Badge variant="outline" className="mt-2">{s.emptyText}</Badge>}
                 </CardContent>
               </Card>
             </Link>
           ))}
         </div>
 
+        {chartData.length > 0 && (
+          <Card className="mb-8">
+            <CardHeader>
+              <CardTitle>Project Scores</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="h-[250px] w-full mt-4">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                    <XAxis dataKey="name" fontSize={12} tickLine={false} axisLine={false} />
+                    <YAxis fontSize={12} tickLine={false} axisLine={false} />
+                    <Tooltip cursor={{ fill: 'transparent' }} />
+                    <Bar dataKey="score" fill="#3b82f6" radius={[4, 4, 0, 0]} maxBarSize={60} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {canRunAnalysis && (
           <div className="flex justify-center">
             <Button
               onClick={async () => {
-                setRunning(true)
+                setOptimisticAnalyzing(true)
                 setError("")
                 try {
                   const res = await fetch(`/api/projects/${project.id}/run-analysis`, { method: "POST" })
                   if (!res.ok) {
                     const data = await res.json()
                     setError(data.error || "Analysis failed")
-                    setRunning(false)
+                    setOptimisticAnalyzing(false)
                     return
                   }
-                  loadProject()
                 } catch {
                   setError("Failed to start analysis")
-                  setRunning(false)
+                  setOptimisticAnalyzing(false)
                 }
               }}
             >
@@ -160,7 +178,7 @@ export default function ProjectPage() {
           </div>
         )}
 
-        {running && !isAnalyzing && (
+        {optimisticAnalyzing && !isAnalyzing && (
           <div className="flex justify-center mt-4">
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />

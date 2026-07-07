@@ -4,7 +4,7 @@ import { PrismaBetterSqlite3 } from '@prisma/adapter-better-sqlite3'
 const globalForPrisma = globalThis as unknown as { prisma: PrismaClient | undefined }
 
 function createPrismaClient(): PrismaClient {
-  const datasourceUrl = process.env.DATABASE_URL || 'file:./praxis-forge.db'
+  const datasourceUrl = process.env.DATABASE_URL || 'file:./hermes-forge.db'
   const dbPath = datasourceUrl.replace('file:', '')
   const adapter = new PrismaBetterSqlite3({ url: dbPath })
   return new PrismaClient({ adapter })

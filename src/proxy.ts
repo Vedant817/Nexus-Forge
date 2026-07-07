@@ -1,13 +1,35 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
+import { checkRateLimit } from '@/lib/security/rate-limit'
 
 const ALLOWED_ORIGINS = process.env.CORS_ORIGINS
   ? process.env.CORS_ORIGINS.split(',').map(o => o.trim())
   : undefined
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const origin = request.headers.get('origin') || ''
   const isApiRoute = request.nextUrl.pathname.startsWith('/api')
+
+  if (isApiRoute) {
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+      || request.headers.get('x-real-ip')
+      || 'anonymous'
+    const rateKey = `${ip}:${request.nextUrl.pathname}`
+    const rateCheck = checkRateLimit(rateKey)
+    if (!rateCheck.allowed) {
+      return new NextResponse(
+        JSON.stringify({ error: 'Too many requests. Please slow down.' }),
+        {
+          status: 429,
+          headers: {
+            'Content-Type': 'application/json',
+            'Retry-After': String(Math.ceil((rateCheck.resetAt - Date.now()) / 1000)),
+            'X-RateLimit-Remaining': '0',
+          },
+        },
+      )
+    }
+  }
 
   if (isApiRoute && origin) {
     if (ALLOWED_ORIGINS && !ALLOWED_ORIGINS.includes(origin)) {

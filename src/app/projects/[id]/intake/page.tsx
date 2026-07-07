@@ -31,25 +31,22 @@ export default function IntakePage() {
   const [prUrl, setPrUrl] = useState("")
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  async function loadSources() {
-    try {
-      const res = await fetch(`/api/projects/${params.id}/sources`)
-      if (res.ok) setSources(await res.json())
-    } catch {}
-  }
-
-  async function loadProject() {
-    try {
-      const res = await fetch(`/api/projects/${params.id}`)
-      if (res.ok) {
-        const data = await res.json()
-        setRepoUrl(data.repoUrl || "")
-        setPrUrl(data.prUrl || "")
-      }
-    } catch {}
-  }
-
-  useEffect(() => { loadSources(); loadProject() }, [params.id])
+  useEffect(() => {
+    const id = params.id
+    fetch(`/api/projects/${id}/sources`)
+      .then(res => { if (res.ok) return res.json() })
+      .then(data => { if (data) setSources(data) })
+      .catch(() => {})
+    fetch(`/api/projects/${id}`)
+      .then(res => { if (res.ok) return res.json() })
+      .then(data => {
+        if (data) {
+          setRepoUrl(data.repoUrl || "")
+          setPrUrl(data.prUrl || "")
+        }
+      })
+      .catch(() => {})
+  }, [params.id])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -68,7 +65,10 @@ export default function IntakePage() {
       }
       setContent("")
       setTitle("")
-      loadSources()
+      const id = params.id
+      fetch(`/api/projects/${id}/sources`)
+        .then(r => { if (r.ok) return r.json() })
+        .then(d => { if (d) setSources(d) })
     } catch {
       setError("Failed to add source")
     } finally {
@@ -112,7 +112,10 @@ export default function IntakePage() {
         setError(data.error || "Failed to upload file")
         return
       }
-      loadSources()
+      const id = params.id
+      fetch(`/api/projects/${id}/sources`)
+        .then(r => { if (r.ok) return r.json() })
+        .then(d => { if (d) setSources(d) })
     } catch {
       setError("Failed to read file")
     } finally {
@@ -216,7 +219,10 @@ export default function IntakePage() {
                     className="text-destructive"
                     onClick={async () => {
                       await fetch(`/api/projects/${params.id}/sources/${s.id}`, { method: "DELETE" })
-                      loadSources()
+                      const id = params.id
+                      fetch(`/api/projects/${id}/sources`)
+                        .then(r => { if (r.ok) return r.json() })
+                        .then(d => { if (d) setSources(d) })
                     }}
                   >
                     Remove

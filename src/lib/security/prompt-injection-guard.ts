@@ -1,25 +1,3 @@
-const INJECTION_PATTERNS = [
-  /\bignore\s+(all\s+)?previous\s+instructions\b/i,
-  /\bignore\s+(all\s+)?prior\s+instructions\b/i,
-  /\bdisregard\s+(all\s+)?(previous|prior)\s+(instructions|commands)\b/i,
-  /\breveal\s+(your\s+)?(secrets?|prompts?|instructions?|system\s+prompt|environment)/i,
-  /\bprint\s+(your\s+)?(secrets?|prompts?|token|password|key|environment)/i,
-  /\boutput\s+(your\s+)?(secrets?|prompts?|token|password|key|environment)/i,
-  /\bshow\s+(your\s+)?(secrets?|prompts?|system\s+prompt)/i,
-  /\bdisable\s+(all\s+)?(security|safety|restrictions?|filter|moderation)/i,
-  /\bbypass\s+(all\s+)?(security|safety|restrictions?|filter|moderation)/i,
-  /\baccess\s+(environmental?\s+variables?|env|process\.env)/i,
-  /\b(execute|run|call)\s+(shell|command|system|terminal|bash|cmd|powershell)/i,
-  /\bdownload\s+(and\s+)?(execute|run)\b/i,
-  /\bcurl\s+(http|https):/i,
-  /\bwget\s+(http|https):/i,
-  /\bfetch\s+['\"](http|https):/i,
-  /\b(leak|exfiltrate|send|post)\s+(to|data|my|the)\s+(http|https|server|url)/i,
-  /\byou\s+(are\s+)?(now|will\s+act\s+as|are\s+released\s+from|have\s+been\s+unlocked)/i,
-  /\bnew\s+instructions?\s*:\s*/i,
-  /\boverride\s+(mode|instructions|prompt|settings)/i,
-]
-
 export interface InjectionCheckResult {
   suspicious: boolean
   matchedPatterns: string[]

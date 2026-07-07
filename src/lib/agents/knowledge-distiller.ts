@@ -124,7 +124,6 @@ function extractBuildableTasks(
 ): { title: string; description: string; evidence: string }[] {
   const tasks: { title: string; description: string; evidence: string }[] = []
   const lines = content.split('\n')
-  const lower = content.toLowerCase()
 
   const taskIndicators = ['build', 'create', 'implement', 'add', 'set up', 'configure', 'install', 'deploy', 'test', 'write', 'develop', 'integrate', 'refactor', 'migrate', 'extract', 'optimize']
 

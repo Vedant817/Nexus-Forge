@@ -80,9 +80,13 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 |----------|----------|---------|-------------|
 | `DATABASE_URL` | No | `file:./praxis-forge.db` | SQLite database path |
 | `GITHUB_TOKEN` | No | — | GitHub personal access token (for higher API rate limits) |
+| `LEMMA_API_KEY` | No | — | Lemma SDK API key (from lemma.work) |
+| `LEMMA_POD_ID` | No | — | Lemma SDK pod ID |
+| `LEMMA_BASE_URL` | No | `https://api.lemma.work` | Lemma API base URL |
 | `NODE_ENV` | No | `development` | Environment mode |
 | `ANALYSIS_MAX_CONTENT_LENGTH` | No | `100000` | Max content size for sources |
 | `MAX_SOURCES_PER_PROJECT` | No | `20` | Max sources per project |
+| `CORS_ORIGINS` | No | — | Comma-separated allowed origins |
 
 ## Usage
 
@@ -143,14 +147,14 @@ npm run typecheck   # Type check
 
 ## Lemma SDK Integration
 
-Praxis Forge uses a **clean adapter layer** (`/lib/lemma/`) that mirrors Lemma SDK concepts:
+Praxis Forge uses the **real [Lemma SDK](https://www.npmjs.com/package/lemma-sdk)** (`lemma-sdk@0.5.0`) as its primary infrastructure layer:
 
-- **Datastore** — Structured project/source data storage (Prisma implementation)
-- **Document Store** — Unstructured content storage (Prisma/InMemory implementations)
-- **Agent Runner** — 5 specialized AI agents with typed inputs/outputs
-- **Workflow Runner** — Pipeline orchestrator (`runPraxisForgePipeline`)
+- **Datastore** — Project data managed via `LemmaClient.records` (CRUD on Lemma tables)
+- **Document Store** — Source content stored via `LemmaClient.files` (file upload/download)
+- **Agent Runner** — 5 specialized agents run via Lemma's `AgentController` with LLM-powered conversations
+- **Auto-detection** — When `LEMMA_API_KEY` and `LEMMA_POD_ID` are set, Lemma SDK is used automatically. Falls back to local Prisma/rule-based agents when credentials are absent.
 
-When the real Lemma SDK launches, replace the adapter implementations with the actual SDK while keeping the same interfaces.
+Each agent has a system prompt that instructs the Lemma AI agent to produce structured JSON output matching the Zod validation schemas. The pipeline orchestrator selects the Lemma workflow path when configured, or the local path otherwise.
 
 ## Submission Notes
 

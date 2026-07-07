@@ -8,7 +8,7 @@ export default function HomePage() {
           Turn learning into <span className="text-primary">shipped proof-of-work</span>
         </h1>
         <p className="text-lg text-muted-foreground mb-8 leading-relaxed">
-          Praxis Forge is an AI-native workflow operator that turns YouTube transcripts, blog posts, GitHub repos, PRs, 
+          Hermes Forge is an AI-native workflow operator that turns YouTube transcripts, blog posts, GitHub repos, PRs, 
           and AI coding-agent chats into executable build workflows, release-readiness reports, and portfolio-ready proof packs.
         </p>
         <div className="flex gap-4 justify-center">
@@ -47,10 +47,10 @@ export default function HomePage() {
       </section>
 
       <section className="max-w-4xl mx-auto mb-20">
-        <h2 className="text-2xl font-bold text-center mb-8">What Makes Praxis Forge Different</h2>
+        <h2 className="text-2xl font-bold text-center mb-8">What Makes Hermes Forge Different</h2>
         <div className="grid md:grid-cols-2 gap-6">
           {[
-            { title: "Full Journey, Not Just Code", desc: "Code review tools check a PR. Praxis Forge checks the whole builder journey — learning, implementation, release readiness, and portfolio proof." },
+            { title: "Full Journey, Not Just Code", desc: "Code review tools check a PR. Hermes Forge checks the whole builder journey — learning, implementation, release readiness, and portfolio proof." },
             { title: "Evidence-Based Scoring", desc: "No fake scores. Every score is computed from actual evidence — README quality, tests, architecture, CI/CD, security hygiene." },
             { title: "Copyable Agent Prompts", desc: "Every workflow task includes a copyable AI agent prompt that coding agents like Claude Code, Codex, and Cursor can use directly." },
             { title: "Portfolio-Ready Output", desc: "Export proof packs with resume bullets, demo scripts, interview explanations, and LinkedIn posts — ready for hiring." },

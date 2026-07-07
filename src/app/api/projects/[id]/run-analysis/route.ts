@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import prisma from '@/lib/db/prisma'
 import { checkRateLimit } from '@/lib/security/rate-limit'
 import { logAudit } from '@/lib/security/audit-log'
-import { runPraxisForgePipeline } from '@/lib/workflows/praxis-forge-pipeline'
+import { runHermesForgePipeline } from '@/lib/workflows/hermes-forge-pipeline'
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -34,7 +34,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
     await logAudit('analysis_started', 'API: Analysis requested', id)
 
-    const result = await runPraxisForgePipeline(id)
+    const result = await runHermesForgePipeline(id)
 
     return NextResponse.json({ success: true, result })
   } catch (err) {

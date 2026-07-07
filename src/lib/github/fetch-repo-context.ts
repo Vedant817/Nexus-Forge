@@ -1,13 +1,50 @@
 import { parseGitHubRepoUrl, parseGitHubPrUrl } from '../security/url-safety'
 import config from '../config/env'
 
+interface GithubRepoResponse {
+  name: string
+  description: string | null
+  default_branch: string
+  stargazers_count: number
+  language: string | null
+}
+
+interface GithubContentItem {
+  name: string
+  type: string
+  path: string
+}
+
+interface GithubFileItem {
+  filename: string
+  additions: number
+  deletions: number
+  patch?: string
+}
+
+interface GithubReadmeResponse {
+  content: string
+  encoding: string
+}
+
+interface GithubWorkflowItem {
+  name: string
+  path: string
+  state: string
+}
+
+interface GithubPRResponse {
+  title: string
+  body: string | null
+}
+
 const GITHUB_API = 'https://api.github.com'
 const GITHUB_RAW = 'https://raw.githubusercontent.com'
 
 async function githubFetch(path: string, options?: { timeout?: number }): Promise<Response> {
   const headers: Record<string, string> = {
     Accept: 'application/vnd.github.v3+json',
-    'User-Agent': 'praxis-forge/1.0',
+    'User-Agent': 'hermes-forge/1.0',
   }
   if (config.GITHUB_TOKEN) {
     headers.Authorization = `Bearer ${config.GITHUB_TOKEN}`
@@ -57,17 +94,17 @@ export async function fetchRepoContext(url: string): Promise<RepoContext> {
   const { owner, repo } = parsed.data
 
   const repoRes = await githubFetch(`/repos/${owner}/${repo}`)
-  const repoData = await repoRes.json() as any
+  const repoData = await repoRes.json() as GithubRepoResponse
 
   const contentsRes = await githubFetch(`/repos/${owner}/${repo}/contents/`)
-  const contents = await contentsRes.json() as any[]
+  const contents = await contentsRes.json() as GithubContentItem[]
 
-  const tree: string[] = contents.map((item: any) => item.name)
+  const tree: string[] = contents.map((item: GithubContentItem) => item.name)
 
   let readme = ''
   try {
     const readmeRes = await githubFetch(`/repos/${owner}/${repo}/readme`)
-    const readmeData = await readmeRes.json() as any
+    const readmeData = await readmeRes.json() as GithubReadmeResponse
     readme = Buffer.from(readmeData.content, 'base64').toString('utf-8')
   } catch { }
 
@@ -86,9 +123,9 @@ export async function fetchRepoContext(url: string): Promise<RepoContext> {
   let githubWorkflows: string[] = []
   try {
     const workflowsRes = await githubFetch(`/repos/${owner}/${repo}/contents/.github/workflows`)
-    const workflows = await workflowsRes.json() as any[]
+    const workflows = await workflowsRes.json() as GithubWorkflowItem[]
     if (Array.isArray(workflows)) {
-      githubWorkflows = workflows.map((w: any) => w.name)
+      githubWorkflows = workflows.map((w: GithubWorkflowItem) => w.name)
     }
   } catch { }
 
@@ -126,16 +163,16 @@ export async function fetchPRContext(url: string): Promise<PRContext> {
   const { owner, repo, pullNumber } = parsed.data
 
   const prRes = await githubFetch(`/repos/${owner}/${repo}/pulls/${pullNumber}`)
-  const prData = await prRes.json() as any
+  const prData = await prRes.json() as GithubPRResponse
 
   const filesRes = await githubFetch(`/repos/${owner}/${repo}/pulls/${pullNumber}/files`)
-  const files = await filesRes.json() as any[]
+  const files = await filesRes.json() as GithubFileItem[]
 
-  const changedFiles = files.map((f: any) => f.filename)
-  const additions = files.reduce((sum: number, f: any) => sum + (f.additions ?? 0), 0)
-  const deletions = files.reduce((sum: number, f: any) => sum + (f.deletions ?? 0), 0)
+  const changedFiles = files.map((f: GithubFileItem) => f.filename)
+  const additions = files.reduce((sum: number, f: GithubFileItem) => sum + (f.additions ?? 0), 0)
+  const deletions = files.reduce((sum: number, f: GithubFileItem) => sum + (f.deletions ?? 0), 0)
 
-  const allDiffs = files.map((f: any) => f.patch || '').filter(Boolean).join('\n\n---\n\n')
+  const allDiffs = files.map((f: GithubFileItem) => f.patch || '').filter(Boolean).join('\n\n---\n\n')
 
   return {
     title: prData.title ?? '',

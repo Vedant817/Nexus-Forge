@@ -5,9 +5,20 @@ import { useParams } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 
+interface RepoReviewPageData {
+  maturityScore: number
+  detectedStack: string
+  missingItems: string
+  risks: string
+  recommendedFixes: string
+  importantFiles: string
+  architectureSummary: string
+  setupQuality: string
+}
+
 export default function RepoReviewPage() {
   const params = useParams()
-  const [data, setData] = useState<any>(null)
+  const [data, setData] = useState<RepoReviewPageData | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -21,11 +32,11 @@ export default function RepoReviewPage() {
   if (loading) return <div className="flex items-center justify-center min-h-[60vh]"><div className="text-muted-foreground">Loading...</div></div>
   if (!data) return <div className="flex items-center justify-center min-h-[60vh]"><div className="text-muted-foreground">No repo analysis yet. Add a repo URL and run analysis.</div></div>
 
-  const stack = safeParse(data.detectedStack)
-  const missing = safeParse(data.missingItems)
-  const risks = safeParse(data.risks)
-  const fixes = safeParse(data.recommendedFixes)
-  const files = safeParse(data.importantFiles)
+  const stack = safeParse(data.detectedStack) as string[]
+  const missing = safeParse(data.missingItems) as string[]
+  const risks = safeParse(data.risks) as string[]
+  const fixes = safeParse(data.recommendedFixes) as string[]
+  const files = safeParse(data.importantFiles) as string[]
 
   const scoreColor = data.maturityScore >= 70 ? "text-green-600" : data.maturityScore >= 40 ? "text-yellow-600" : "text-red-600"
 
@@ -109,6 +120,6 @@ export default function RepoReviewPage() {
   )
 }
 
-function safeParse(json: string): any[] {
-  try { return JSON.parse(json) } catch { return [] }
+function safeParse(json: string): unknown[] {
+  try { return JSON.parse(json) as unknown[] } catch { return [] }
 }

@@ -16,7 +16,7 @@ export async function GET() {
       },
     })
     return NextResponse.json(projects)
-  } catch (err) {
+  } catch {
     return NextResponse.json({ error: 'Failed to fetch projects' }, { status: 500 })
   }
 }
@@ -51,7 +51,7 @@ export async function POST(request: Request) {
     await logAudit('project_created', `Project "${name}" created`, project.id)
 
     return NextResponse.json(project, { status: 201 })
-  } catch (err) {
+  } catch {
     return NextResponse.json({ error: 'Failed to create project' }, { status: 500 })
   }
 }

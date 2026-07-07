@@ -3,11 +3,22 @@
 import { useEffect, useState } from "react"
 import { useParams } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
+
+interface ReleasePageData {
+  releaseScore: number
+  decision: string
+  releaseNotesDraft: string
+  topRisks: string
+  missingTests: string
+  missingDocs: string
+  configOrEnvIssues: string
+  releaseChecklist: string
+  recommendedFixesBeforeMerge: string
+}
 
 export default function ReleasePage() {
   const params = useParams()
-  const [data, setData] = useState<any>(null)
+  const [data, setData] = useState<ReleasePageData | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -21,12 +32,12 @@ export default function ReleasePage() {
   if (loading) return <div className="flex items-center justify-center min-h-[60vh]"><div className="text-muted-foreground">Loading...</div></div>
   if (!data) return <div className="flex items-center justify-center min-h-[60vh]"><div className="text-muted-foreground">No release report yet. Add a PR URL and run analysis.</div></div>
 
-  const risks = safeParse(data.topRisks)
-  const missingTests = safeParse(data.missingTests)
-  const missingDocs = safeParse(data.missingDocs)
-  const configIssues = safeParse(data.configOrEnvIssues)
-  const checklist = safeParse(data.releaseChecklist)
-  const fixes = safeParse(data.recommendedFixesBeforeMerge)
+  const risks = safeParse(data.topRisks) as string[]
+  const missingTests = safeParse(data.missingTests) as string[]
+  const missingDocs = safeParse(data.missingDocs) as string[]
+  const configIssues = safeParse(data.configOrEnvIssues) as string[]
+  const checklist = safeParse(data.releaseChecklist) as string[]
+  const fixes = safeParse(data.recommendedFixesBeforeMerge) as string[]
 
   const decisionColor = data.decision === "go" ? "text-green-600" : data.decision === "go_with_fixes" ? "text-yellow-600" : "text-red-600"
   const decisionLabel = data.decision === "go" ? "Go" : data.decision === "go_with_fixes" ? "Go with Fixes" : "No Go"
@@ -129,6 +140,6 @@ export default function ReleasePage() {
   )
 }
 
-function safeParse(json: string): any[] {
-  try { return JSON.parse(json) } catch { return [] }
+function safeParse(json: string): unknown[] {
+  try { return JSON.parse(json) as unknown[] } catch { return [] }
 }

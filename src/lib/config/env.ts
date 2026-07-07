@@ -3,7 +3,7 @@ const env = {
     return process.env.GITHUB_TOKEN
   },
   get DATABASE_URL(): string {
-    return process.env.DATABASE_URL || 'file:./praxis-forge.db'
+    return process.env.DATABASE_URL || 'file:./hermes-forge.db'
   },
   get NODE_ENV(): string {
     return process.env.NODE_ENV || 'development'
@@ -14,12 +14,24 @@ const env = {
   get MAX_SOURCES_PER_PROJECT(): number {
     return parseInt(process.env.MAX_SOURCES_PER_PROJECT || '20', 10)
   },
+  get LEMMA_API_KEY(): string | undefined {
+    return process.env.LEMMA_API_KEY
+  },
+  get LEMMA_POD_ID(): string | undefined {
+    return process.env.LEMMA_POD_ID
+  },
+  get LEMMA_BASE_URL(): string {
+    return process.env.LEMMA_BASE_URL || 'https://api.lemma.work'
+  },
+  get OPENROUTER_API_KEY(): string | undefined {
+    return process.env.OPENROUTER_API_KEY
+  },
+  get OPENROUTER_MODEL(): string {
+    return process.env.OPENROUTER_MODEL || 'qwen/qwen3-coder:free'
+  },
 
   validate(): string[] {
     const errors: string[] = []
-    if (env.NODE_ENV === 'production' && !env.GITHUB_TOKEN) {
-      errors.push('GITHUB_TOKEN is required in production')
-    }
     if (!env.DATABASE_URL) {
       errors.push('DATABASE_URL is required')
     }
