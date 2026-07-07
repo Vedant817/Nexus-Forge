@@ -1,4 +1,4 @@
-import { generateObject } from 'ai'
+import { generateText } from 'ai'
 import { createGroq } from '@ai-sdk/groq'
 import { z } from 'zod'
 
@@ -42,15 +42,28 @@ export async function generateArchitectureGraph(architectureSummary: string): Pr
     - Connect dependencies logically.
     - If data flows or depends heavily, set animated: true.
     
+    OUTPUT ONLY VALID JSON that matches this TypeScript type exactly (do not wrap in markdown blocks like \`\`\`json):
+    {
+      nodes: { id: string, position: { x: number, y: number }, data: { label: string, description?: string }, type?: 'default' | 'input' | 'output' | 'group' }[],
+      edges: { id: string, source: string, target: string, label?: string, animated?: boolean }[]
+    }
+    
     Architecture Summary:
     ${architectureSummary}
   `
 
-  const { object } = await generateObject({
+  const { text } = await generateText({
     model: groq('llama-3.3-70b-versatile'),
-    schema: ArchitectureGraphSchema,
     prompt
   })
 
-  return object
+  try {
+    const cleanText = text.replace(/```json/g, '').replace(/```/g, '').trim()
+    const parsed = JSON.parse(cleanText)
+    return ArchitectureGraphSchema.parse(parsed)
+  } catch (error) {
+    console.error("Failed to parse architecture graph JSON:", text)
+    // Fallback empty graph
+    return { nodes: [], edges: [] }
+  }
 }
