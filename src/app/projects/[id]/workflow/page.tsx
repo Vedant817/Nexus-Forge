@@ -92,36 +92,23 @@ export default function WorkflowPage() {
 
     if (sourceCol === destCol && source.index === destination.index) return
 
-    const newTasks = Array.from(tasks)
+    const newTasks = [...tasks]
     
-    // Find task in full array
     const sourceTasks = newTasks.filter(t => t.status === sourceCol)
-    const movedTask = sourceTasks[source.index]
-    
-    // Update its status
-    movedTask.status = destCol
+    const destTasks = sourceCol === destCol ? sourceTasks : newTasks.filter(t => t.status === destCol)
+    const nonAffectedTasks = newTasks.filter(t => t.status !== sourceCol && t.status !== destCol)
 
-    if (sourceCol === destCol) {
-      // Reordering in the same column
-      const nonAffectedTasks = newTasks.filter(t => t.status !== sourceCol)
-      const columnTasks = Array.from(sourceTasks)
-      columnTasks.splice(source.index, 1)
-      columnTasks.splice(destination.index, 0, movedTask)
-      
-      const finalTasks = [...nonAffectedTasks, ...columnTasks]
-      setTasks(finalTasks)
-      saveTasks(finalTasks)
-    } else {
-      // Moving to a different column
-      const nonAffectedTasks = newTasks.filter(t => t.status !== sourceCol && t.status !== destCol)
-      const newSourceTasks = sourceTasks.filter(t => t.id !== movedTask.id)
-      const newDestTasks = newTasks.filter(t => t.status === destCol)
-      newDestTasks.splice(destination.index, 0, movedTask)
-      
-      const finalTasks = [...nonAffectedTasks, ...newSourceTasks, ...newDestTasks]
-      setTasks(finalTasks)
-      saveTasks(finalTasks)
-    }
+    const [movedTaskRef] = sourceTasks.splice(source.index, 1)
+    const movedTask = { ...movedTaskRef, status: destCol }
+    
+    destTasks.splice(destination.index, 0, movedTask)
+
+    const finalTasks = sourceCol === destCol 
+      ? [...nonAffectedTasks, ...destTasks]
+      : [...nonAffectedTasks, ...sourceTasks, ...destTasks]
+
+    setTasks(finalTasks)
+    saveTasks(finalTasks)
   }
 
   function toggleAc(taskId: string, index: number) {
