@@ -1,0 +1,55 @@
+- generic [active] [ref=e1]:
+  - banner [ref=e2]:
+    - generic [ref=e3]:
+      - link "Praxis Forge" [ref=e4] [cursor=pointer]:
+        - /url: /
+      - navigation [ref=e5]:
+        - link "Projects" [ref=e6] [cursor=pointer]:
+          - /url: /projects
+        - link "New Project" [ref=e7] [cursor=pointer]:
+          - /url: /projects/new
+  - main [ref=e8]:
+    - generic [ref=e9]:
+      - generic [ref=e11]:
+        - heading "Test Project" [level=1] [ref=e12]
+        - generic [ref=e13]: completed
+      - generic [ref=e14]:
+        - link "Intake 1 source(s)" [ref=e15] [cursor=pointer]:
+          - /url: /projects/cmqutsfoi0000evxas4qzbbzt/intake
+          - generic [ref=e16]:
+            - generic [ref=e18]: Intake
+            - paragraph [ref=e20]: 1 source(s)
+        - link "Knowledge Distilled learning" [ref=e21] [cursor=pointer]:
+          - /url: /projects/cmqutsfoi0000evxas4qzbbzt/knowledge
+          - generic [ref=e22]:
+            - generic [ref=e24]: Knowledge
+            - paragraph [ref=e26]: Distilled learning
+        - link "Workflow Build tasks & prompts" [ref=e27] [cursor=pointer]:
+          - /url: /projects/cmqutsfoi0000evxas4qzbbzt/workflow
+          - generic [ref=e28]:
+            - generic [ref=e30]: Workflow
+            - paragraph [ref=e32]: Build tasks & prompts
+        - link "Repo Review Maturity analysis No data" [ref=e33] [cursor=pointer]:
+          - /url: /projects/cmqutsfoi0000evxas4qzbbzt/repo-review
+          - generic [ref=e34]:
+            - generic [ref=e36]: Repo Review
+            - generic [ref=e37]:
+              - paragraph [ref=e38]: Maturity analysis
+              - generic [ref=e39]: No data
+        - link "Release Readiness report No data" [ref=e40] [cursor=pointer]:
+          - /url: /projects/cmqutsfoi0000evxas4qzbbzt/release
+          - generic [ref=e41]:
+            - generic [ref=e43]: Release
+            - generic [ref=e44]:
+              - paragraph [ref=e45]: Readiness report
+              - generic [ref=e46]: No data
+        - link "Proof Pack Portfolio output" [ref=e47] [cursor=pointer]:
+          - /url: /projects/cmqutsfoi0000evxas4qzbbzt/proof
+          - generic [ref=e48]:
+            - generic [ref=e50]: Proof Pack
+            - paragraph [ref=e52]: Portfolio output
+      - button "Run Analysis" [ref=e54]
+  - contentinfo [ref=e55]: Praxis Forge — Built for Gappy AI National AI Hackathon
+  - button "Open Next.js Dev Tools" [ref=e61] [cursor=pointer]:
+    - img [ref=e62]
+  - alert [ref=e65]

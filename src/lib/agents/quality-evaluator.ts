@@ -207,7 +207,7 @@ export async function qualityEvaluator(): Promise<QualityEvaluatorOutput> {
 }
 
 export async function evaluateWithModel(goal: string, summary: string, output: QualityEvaluatorOutput): Promise<QualityEvaluatorOutput & { analysis: string }> {
-  const { getAgentRunner } = await import('@/lib/lemma/lemma-client')
+  const { getAgentRunner } = await import('@/lib/agents/ai-runner')
   const runner = await getAgentRunner()
 
   const input = {
@@ -217,7 +217,7 @@ export async function evaluateWithModel(goal: string, summary: string, output: Q
     passed: output.passed,
     criticalFailure: output.criticalFailure,
     criterionResults: output.criterionResults,
-    instructions: `You are a Quality Evaluator for the Hermes Forge self-improvement loop.
+    instructions: `You are a Quality Evaluator for the Nexus Forge self-improvement loop.
 
 Review the runner results and provide:
 1. A detailed analysis of what failed and why

@@ -1,0 +1,51 @@
+- generic [active] [ref=e1]:
+  - banner [ref=e2]:
+    - generic [ref=e3]:
+      - link "Praxis Forge" [ref=e4] [cursor=pointer]:
+        - /url: /
+      - navigation [ref=e5]:
+        - link "Projects" [ref=e6] [cursor=pointer]:
+          - /url: /projects
+        - link "New Project" [ref=e7] [cursor=pointer]:
+          - /url: /projects/new
+  - main [ref=e8]:
+    - generic [ref=e9]:
+      - generic [ref=e10]:
+        - heading "Turn learning into shipped proof-of-work" [level=1] [ref=e11]
+        - paragraph [ref=e12]: Praxis Forge is an AI-native workflow operator that turns YouTube transcripts, blog posts, GitHub repos, PRs, and AI coding-agent chats into executable build workflows, release-readiness reports, and portfolio-ready proof packs.
+        - generic [ref=e13]:
+          - link "Start Building" [ref=e14] [cursor=pointer]:
+            - /url: /projects/new
+          - link "View Projects" [ref=e15] [cursor=pointer]:
+            - /url: /projects
+      - generic [ref=e16]:
+        - heading "How It Works" [level=2] [ref=e17]
+        - generic [ref=e18]:
+          - generic [ref=e19]:
+            - generic [ref=e20]: "1"
+            - heading "Ingest" [level=3] [ref=e21]
+            - paragraph [ref=e22]: Add learning sources — YouTube transcripts, blog posts, Substack articles, AI-agent chat logs, GitHub repos, and PRs.
+          - generic [ref=e23]:
+            - generic [ref=e24]: "2"
+            - heading "Analyze" [level=3] [ref=e25]
+            - paragraph [ref=e26]: Five AI agents extract knowledge, analyze repo readiness, plan workflows, review release safety, and generate proof packs.
+          - generic [ref=e27]:
+            - generic [ref=e28]: "3"
+            - heading "Ship" [level=3] [ref=e29]
+            - paragraph [ref=e30]: Export executable workflows with copyable AI prompts, release-readiness reports, and portfolio-ready proof-of-work documentation.
+      - generic [ref=e31]:
+        - heading "What Makes Praxis Forge Different" [level=2] [ref=e32]
+        - generic [ref=e33]:
+          - generic [ref=e34]:
+            - heading "Full Journey, Not Just Code" [level=3] [ref=e35]
+            - paragraph [ref=e36]: Code review tools check a PR. Praxis Forge checks the whole builder journey — learning, implementation, release readiness, and portfolio proof.
+          - generic [ref=e37]:
+            - heading "Evidence-Based Scoring" [level=3] [ref=e38]
+            - paragraph [ref=e39]: No fake scores. Every score is computed from actual evidence — README quality, tests, architecture, CI/CD, security hygiene.
+          - generic [ref=e40]:
+            - heading "Copyable Agent Prompts" [level=3] [ref=e41]
+            - paragraph [ref=e42]: Every workflow task includes a copyable AI agent prompt that coding agents like Claude Code, Codex, and Cursor can use directly.
+          - generic [ref=e43]:
+            - heading "Portfolio-Ready Output" [level=3] [ref=e44]
+            - paragraph [ref=e45]: Export proof packs with resume bullets, demo scripts, interview explanations, and LinkedIn posts — ready for hiring.
+  - contentinfo [ref=e46]: Praxis Forge — Built for Gappy AI National AI Hackathon

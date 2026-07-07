@@ -111,7 +111,7 @@ async function runOrchestrationLoop(id: string, goal: string): Promise<void> {
             unit.title,
             unit.description,
             unit.acceptance,
-            `Project: Hermes Forge (Next.js 16, TypeScript, Prisma, Tailwind, Lemma SDK)\nWorking directory: ${process.cwd()}`,
+            `Project: Nexus Forge (Next.js 16, TypeScript, Prisma, Tailwind, Lemma SDK)\nWorking directory: ${process.cwd()}`,
           )
           status.currentGeneratorOutput = genOutput
           log(status, `Generator proposed ${genOutput.edits.length} edits for ${unit.title}`)

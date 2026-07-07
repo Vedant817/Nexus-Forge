@@ -42,12 +42,12 @@ export async function proofOfWorkAgent(input: ProofOfWorkInput): Promise<ProofOf
 
 function generatePortfolioSummary(input: ProofOfWorkInput): string {
   const goal = input.projectGoal || 'an AI-native project'
-  return `Built ${goal} as part of the Hermes Forge pipeline. The project combines learning from multiple sources with repository analysis to generate actionable build workflows, release-readiness reports, and proof-of-work documentation. This demonstrates end-to-end AI-assisted development from concept to review-ready output.`
+  return `Built ${goal} as part of the Nexus Forge pipeline. The project combines learning from multiple sources with repository analysis to generate actionable build workflows, release-readiness reports, and proof-of-work documentation. This demonstrates end-to-end AI-assisted development from concept to review-ready output.`
 }
 
 function generateResumeBullet(input: ProofOfWorkInput): string {
   const goal = input.projectGoal || 'AI workflow automation'
-  return `Built and shipped ${goal} using Hermes Forge — an AI-native workflow operator that ingests learning sources, analyzes repository readiness, generates executable build tasks with agent prompts, and produces portfolio-ready proof-of-work documentation.`
+  return `Built and shipped ${goal} using Nexus Forge — an AI-native workflow operator that ingests learning sources, analyzes repository readiness, generates executable build tasks with agent prompts, and produces portfolio-ready proof-of-work documentation.`
 }
 
 function generateDemoScript(input: ProofOfWorkInput): string {
@@ -62,12 +62,12 @@ function generateDemoScript(input: ProofOfWorkInput): string {
 }
 
 function generateInterviewExplanation(input: ProofOfWorkInput): string {
-  return `I built ${input.projectGoal || 'a project'} using Hermes Forge. The process started with ingesting learning content (transcripts, blogs, AI agent chats) and a GitHub repository URL. The system ran five AI agents: a knowledge distiller to extract key concepts, a repo context agent to analyze codebase maturity, a workflow planner to create executable tasks with copyable AI prompts, a release readiness agent to check for risks, and a proof-of-work agent to generate portfolio materials. The result was a complete build workflow with evidence-based scoring and exportable proof documentation.`
+  return `I built ${input.projectGoal || 'a project'} using Nexus Forge. The process started with ingesting learning content (transcripts, blogs, AI agent chats) and a GitHub repository URL. The system ran five AI agents: a knowledge distiller to extract key concepts, a repo context agent to analyze codebase maturity, a workflow planner to create executable tasks with copyable AI prompts, a release readiness agent to check for risks, and a proof-of-work agent to generate portfolio materials. The result was a complete build workflow with evidence-based scoring and exportable proof documentation.`
 }
 
 function generateLinkedInPost(input: ProofOfWorkInput): string {
   const goal = input.projectGoal || 'AI-native build workflow'
-  return `I just built ${goal} using Hermes Forge — an AI-native pipeline that turns learning content and GitHub repos into executable build workflows, release-ready reports, and portfolio proof packs.
+  return `I just built ${goal} using Nexus Forge — an AI-native pipeline that turns learning content and GitHub repos into executable build workflows, release-ready reports, and portfolio proof packs.
 
 The process:
 1. Ingested YouTube transcripts, blog posts, and AI coding agent logs
@@ -78,5 +78,5 @@ The process:
 
 No fake scores. No static dashboards. Real analysis from real sources.
 
-Check out Hermes Forge — the knowledge-to-ship operator for AI-native builders.`
+Check out Nexus Forge — the knowledge-to-ship operator for AI-native builders.`
 }

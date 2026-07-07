@@ -468,7 +468,7 @@ describe('proofOfWorkAgent', () => {
       finalSummary: '',
     })
     expect(result.resumeBullet).toContain('CI/CD')
-    expect(result.resumeBullet).toContain('Hermes Forge')
+    expect(result.resumeBullet).toContain('Nexus Forge')
   })
 
   it('generates demo video script', async () => {
@@ -528,7 +528,7 @@ describe('proofOfWorkAgent', () => {
       finalSummary: '',
     })
     expect(result.linkedinPost).toContain('machine learning')
-    expect(result.linkedinPost).toContain('Hermes Forge')
+    expect(result.linkedinPost).toContain('Nexus Forge')
   })
 
   it('computes proof score based on evidence', async () => {

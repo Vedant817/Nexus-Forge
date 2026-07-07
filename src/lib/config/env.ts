@@ -14,15 +14,7 @@ const env = {
   get MAX_SOURCES_PER_PROJECT(): number {
     return parseInt(process.env.MAX_SOURCES_PER_PROJECT || '20', 10)
   },
-  get LEMMA_API_KEY(): string | undefined {
-    return process.env.LEMMA_API_KEY
-  },
-  get LEMMA_POD_ID(): string | undefined {
-    return process.env.LEMMA_POD_ID
-  },
-  get LEMMA_BASE_URL(): string {
-    return process.env.LEMMA_BASE_URL || 'https://api.lemma.work'
-  },
+
   get GROQ_API_KEY(): string | undefined {
     return process.env.GROQ_API_KEY
   },

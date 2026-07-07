@@ -1,0 +1,15 @@
+- generic [active] [ref=e1]:
+  - banner [ref=e2]:
+    - generic [ref=e3]:
+      - link "Praxis Forge" [ref=e4] [cursor=pointer]:
+        - /url: /
+      - navigation [ref=e5]:
+        - link "Projects" [ref=e6] [cursor=pointer]:
+          - /url: /projects
+        - link "New Project" [ref=e7] [cursor=pointer]:
+          - /url: /projects/new
+  - main [ref=e8]:
+    - generic [ref=e10]: Loading...
+  - contentinfo [ref=e11]: Praxis Forge — Built for Gappy AI National AI Hackathon
+  - button "Open Next.js Dev Tools" [ref=e17] [cursor=pointer]:
+    - img [ref=e18]

@@ -1,0 +1,39 @@
+- generic [active] [ref=e1]:
+  - banner [ref=e2]:
+    - generic [ref=e3]:
+      - link "Praxis Forge" [ref=e4] [cursor=pointer]:
+        - /url: /
+      - navigation [ref=e5]:
+        - link "Projects" [ref=e6] [cursor=pointer]:
+          - /url: /projects
+        - link "New Project" [ref=e7] [cursor=pointer]:
+          - /url: /projects/new
+  - main [ref=e8]:
+    - generic [ref=e9]:
+      - heading "Create Project" [level=1] [ref=e10]
+      - generic [ref=e12]:
+        - generic [ref=e13]:
+          - generic [ref=e14]: Project Details
+          - generic [ref=e15]: Define your project and optionally link a GitHub repository.
+        - generic [ref=e16]:
+          - generic [ref=e17]:
+            - generic [ref=e18]: Project Name *
+            - textbox "Project Name *" [ref=e19]:
+              - /placeholder: My AI Project
+          - generic [ref=e20]:
+            - generic [ref=e21]: Project Goal
+            - textbox "Project Goal" [ref=e22]:
+              - /placeholder: What do you want to build?
+          - generic [ref=e23]:
+            - generic [ref=e24]: GitHub Repo URL
+            - textbox "GitHub Repo URL" [ref=e25]:
+              - /placeholder: https://github.com/owner/repo
+          - generic [ref=e26]:
+            - generic [ref=e27]: GitHub PR URL
+            - textbox "GitHub PR URL" [ref=e28]:
+              - /placeholder: https://github.com/owner/repo/pull/1
+          - button "Create Project" [ref=e29]
+  - contentinfo [ref=e30]: Praxis Forge — Built for Gappy AI National AI Hackathon
+  - button "Open Next.js Dev Tools" [ref=e36] [cursor=pointer]:
+    - img [ref=e37]
+  - alert [ref=e40]

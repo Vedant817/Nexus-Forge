@@ -48,7 +48,7 @@ export default function ProjectsPage() {
       {projects.length === 0 ? (
         <div className="text-center py-20 border rounded-lg bg-card">
           <h2 className="text-xl font-semibold mb-2">No projects yet</h2>
-          <p className="text-muted-foreground mb-6">Create your first project to start building with Hermes Forge.</p>
+          <p className="text-muted-foreground mb-6">Create your first project to start building with Nexus Forge.</p>
           <Link
             href="/projects/new"
             className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"

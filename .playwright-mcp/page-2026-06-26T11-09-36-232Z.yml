@@ -1,0 +1,51 @@
+- generic [active] [ref=e1]:
+  - banner [ref=e2]:
+    - generic [ref=e3]:
+      - link "Praxis Forge" [ref=e4] [cursor=pointer]:
+        - /url: /
+      - navigation [ref=e5]:
+        - link "Projects" [ref=e6] [cursor=pointer]:
+          - /url: /projects
+        - link "New Project" [ref=e7] [cursor=pointer]:
+          - /url: /projects/new
+  - main [ref=e8]:
+    - generic [ref=e9]:
+      - heading "Knowledge Summary" [level=1] [ref=e10]
+      - generic [ref=e11]:
+        - generic [ref=e13]: Main Topic
+        - paragraph [ref=e15]: This is test content about building software
+      - generic [ref=e16]:
+        - generic [ref=e17]:
+          - generic [ref=e19]: Key Concepts
+          - list [ref=e21]:
+            - listitem [ref=e22]: No specific technical concepts identified
+        - generic [ref=e23]:
+          - generic [ref=e25]: Implementation Patterns
+          - list [ref=e27]:
+            - listitem [ref=e28]: No explicit implementation patterns identified from source
+      - generic [ref=e29]:
+        - generic [ref=e31]: Buildable Tasks
+        - generic [ref=e34]:
+          - heading "This is test content about building software" [level=3] [ref=e35]
+          - paragraph [ref=e36]: This is test content about building software.
+          - paragraph [ref=e37]: "Evidence: Extracted from source: \"This is test content about building software....\""
+      - alert [ref=e38]:
+        - generic [ref=e39]:
+          - strong [ref=e40]: "Warnings:"
+          - list [ref=e41]:
+            - listitem [ref=e42]: Source content is very short. Analysis may lack depth.
+      - generic [ref=e43]:
+        - generic [ref=e44]:
+          - generic [ref=e46]: Terms to Understand
+          - paragraph [ref=e48]: No terms identified
+        - generic [ref=e49]:
+          - generic [ref=e51]: Source Evidence
+          - list [ref=e53]:
+            - listitem [ref=e54]: "[blog] Test Blog"
+      - generic [ref=e55]:
+        - generic [ref=e57]: Recommended Next Action
+        - paragraph [ref=e59]: "Start with task: This is test content about building software"
+  - contentinfo [ref=e60]: Praxis Forge — Built for Gappy AI National AI Hackathon
+  - button "Open Next.js Dev Tools" [ref=e66] [cursor=pointer]:
+    - img [ref=e67]
+  - alert [ref=e70]

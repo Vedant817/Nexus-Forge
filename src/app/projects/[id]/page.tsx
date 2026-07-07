@@ -34,7 +34,7 @@ export default function ProjectPage() {
   const [isNotFound, setIsNotFound] = useState(false)
   const [error, setError] = useState("")
 
-  const isAnalyzing = project?.status === "analyzing" || optimisticAnalyzing
+  const isAnalyzing = project?.status.startsWith("analyzing") || optimisticAnalyzing
   const canRunAnalysis = !isAnalyzing && !optimisticAnalyzing && (project?.sources?.length ?? 0) > 0
 
   useEffect(() => {
@@ -44,7 +44,7 @@ export default function ProjectPage() {
         if (!res.ok) throw new Error("Failed to load")
         return res.json()
       })
-      .then(data => { if (data) { setProject(data); if (data.status !== "analyzing") setOptimisticAnalyzing(false) } })
+      .then(data => { if (data) { setProject(data); if (!data.status.startsWith("analyzing")) setOptimisticAnalyzing(false) } })
       .catch(() => setError("Failed to load project"))
       .finally(() => setLoading(false))
   }, [params.id])
@@ -58,7 +58,7 @@ export default function ProjectPage() {
           .then(data => { 
             if (data) { 
               setProject(data)
-              if (data.status !== "analyzing") {
+              if (!data.status.startsWith("analyzing")) {
                 setOptimisticAnalyzing(false)
                 clearInterval(id)
               }
@@ -112,9 +112,18 @@ export default function ProjectPage() {
         {isAnalyzing && (
           <Card className="mb-6 border-blue-200 bg-blue-50">
             <CardContent className="pt-6">
-              <div className="flex items-center gap-3">
-                <div className="h-5 w-5 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
-                <p className="text-sm text-blue-700">Analysis in progress. Results will appear as they complete...</p>
+              <div className="flex flex-col gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="h-5 w-5 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
+                  <p className="font-semibold text-blue-900">Analysis in progress...</p>
+                </div>
+                <div className="pl-8 space-y-3">
+                  <StepIndicator status={project?.status} stepStatus="analyzing:knowledge" label="Distilling Knowledge" />
+                  <StepIndicator status={project?.status} stepStatus="analyzing:repo" label="Analyzing Repository Context" />
+                  <StepIndicator status={project?.status} stepStatus="analyzing:workflow" label="Planning Build Workflow" />
+                  <StepIndicator status={project?.status} stepStatus="analyzing:release" label="Evaluating Release Readiness" />
+                  <StepIndicator status={project?.status} stepStatus="analyzing:proof" label="Generating Proof of Work" />
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -231,6 +240,41 @@ function NotFoundState() {
           Back to projects
         </Link>
       </div>
+    </div>
+  )
+}
+
+function StepIndicator({ status, stepStatus, label }: { status?: string, stepStatus: string, label: string }) {
+  const steps = [
+    "analyzing", 
+    "analyzing:knowledge", 
+    "analyzing:repo", 
+    "analyzing:workflow", 
+    "analyzing:release", 
+    "analyzing:proof"
+  ]
+  const currentIndex = steps.indexOf(status || "analyzing")
+  const stepIndex = steps.indexOf(stepStatus)
+  
+  const isCompleted = currentIndex > stepIndex
+  const isCurrent = currentIndex === stepIndex
+
+  return (
+    <div className="flex items-center gap-3">
+      {isCompleted ? (
+        <div className="h-4 w-4 rounded-full bg-blue-600 flex items-center justify-center shrink-0">
+          <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+          </svg>
+        </div>
+      ) : isCurrent ? (
+        <div className="h-4 w-4 animate-pulse rounded-full bg-blue-400 shrink-0" />
+      ) : (
+        <div className="h-4 w-4 rounded-full border-2 border-blue-200 shrink-0" />
+      )}
+      <p className={`text-sm ${isCurrent ? "text-blue-900 font-medium" : isCompleted ? "text-blue-700" : "text-blue-400"}`}>
+        {label}
+      </p>
     </div>
   )
 }

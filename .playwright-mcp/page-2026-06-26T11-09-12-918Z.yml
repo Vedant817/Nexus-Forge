@@ -1,0 +1,29 @@
+- generic [active] [ref=e1]:
+  - banner [ref=e2]:
+    - generic [ref=e3]:
+      - link "Praxis Forge" [ref=e4] [cursor=pointer]:
+        - /url: /
+      - navigation [ref=e5]:
+        - link "Projects" [ref=e6] [cursor=pointer]:
+          - /url: /projects
+        - link "New Project" [ref=e7] [cursor=pointer]:
+          - /url: /projects/new
+  - main [ref=e8]:
+    - generic [ref=e9]:
+      - generic [ref=e10]:
+        - heading "Projects" [level=1] [ref=e11]
+        - link "New Project" [ref=e12] [cursor=pointer]:
+          - /url: /projects/new
+      - 'link "Test Project completed 1 source(s) Proof: 70/100" [ref=e14] [cursor=pointer]':
+        - /url: /projects/cmqutsfoi0000evxas4qzbbzt
+        - generic [ref=e15]:
+          - generic [ref=e17]:
+            - generic [ref=e19]: Test Project
+            - generic [ref=e20]: completed
+          - generic [ref=e22]:
+            - generic [ref=e23]: 1 source(s)
+            - generic [ref=e24]: "Proof: 70/100"
+  - contentinfo [ref=e25]: Praxis Forge — Built for Gappy AI National AI Hackathon
+  - button "Open Next.js Dev Tools" [ref=e31] [cursor=pointer]:
+    - img [ref=e32]
+  - alert [ref=e35]

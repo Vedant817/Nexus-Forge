@@ -1,20 +1,28 @@
-# Hermes Forge
+# Nexus Forge
 
-**Knowledge-to-Ship Operator for AI-native builders.**
+**The AI-Native Knowledge-to-Ship Orchestrator**
 
-Turn YouTube transcripts, blog posts, GitHub repos, PRs, and AI coding-agent chats into executable build workflows, release-readiness reports, and portfolio-ready proof-of-work packs.
+Turn fragmented learning—YouTube transcripts, technical blogs, GitHub repos, PRs, and AI coding-agent chat logs—into **executable build workflows, release-readiness reports, and portfolio-ready proof-of-work packs**.
 
-Built for the **Gappy AI National AI Hackathon** powered by Lemma SDK.
+## The Problem With AI Tooling Today
 
-## Features
+Modern AI development is fragmented. You use ChatGPT or Claude to learn a concept and plan an architecture. You use Cursor or GitHub Copilot to write the code. But what about everything else? 
+- Who checks if your repo is actually production-ready? 
+- Who tracks the "gap" between what you planned and what you built? 
+- Who writes the portfolio updates, resume bullets, and LinkedIn posts to prove your work?
 
-- **Intake** — Paste transcripts, blogs, agent chat logs, GitHub repos, and PR URLs
-- **Knowledge Distillation** — Extract key concepts, patterns, buildable tasks from learning sources
-- **Repo Analysis** — Score repository maturity on README, tests, CI/CD, Docker, env safety
-- **Workflow Board** — Kanban-style build tasks with copyable AI agent prompts
-- **Release Readiness** — Evidence-based scoring: go / go-with-fixes / no-go
-- **Proof Pack** — Portfolio summary, resume bullet, demo script, interview explanation, LinkedIn post
-- **Markdown Export** — Export workflow and proof pack as downloadable .md files
+## The Solution: Nexus Forge
+
+Nexus Forge doesn't just write code—it manages the **entire builder journey**. It is an end-to-end orchestrator that bridges the gap between raw knowledge and a shipped, portfolio-ready product.
+
+### Core Features
+
+- **Intake Engine** — Paste YouTube transcripts, blog posts, agent chat logs, GitHub repos, and PR URLs directly into the Forge.
+- **Knowledge Distillation** — Extracts key concepts, architectural patterns, and actionable build tasks from raw learning sources.
+- **Repo Context Analysis** — Scores your repository's maturity based on actual evidence (README quality, test coverage, CI/CD pipelines, Docker setup, and environment safety).
+- **Workflow Planner** — Generates a Kanban-style build board. Every task includes a **copyable AI agent prompt** that you can paste directly into coding agents like Cursor or Claude Code.
+- **Release Readiness Reviewer** — Provides evidence-based scoring (Go / Go-with-fixes / No-Go) highlighting the exact gaps preventing a production release.
+- **Proof-of-Work Generator** — Automatically generates a portfolio summary, resume bullets, demo scripts, technical interview explanations, and LinkedIn posts.
 
 ## Tech Stack
 
@@ -22,30 +30,11 @@ Built for the **Gappy AI National AI Hackathon** powered by Lemma SDK.
 - **Language:** TypeScript
 - **Styling:** Tailwind CSS + shadcn/ui
 - **Validation:** Zod
-- **Database:** SQLite via Prisma + better-sqlite3
+- **Database:** PostgreSQL (Neon) via Prisma (`@prisma/adapter-pg`)
+- **Agent Orchestration:** Vercel AI SDK (`ai`) + Groq (`@ai-sdk/groq`)
 - **GitHub Integration:** Real GitHub REST API fetches
 - **Testing:** Vitest
 - **Build Tool:** Turbopack
-
-## Architecture
-
-```
-/app          — Next.js App Router pages and API routes
-  /api        — REST API endpoints
-  /projects   — UI pages
-/components   — Reusable UI components (shadcn/ui)
-/lib
-  /agents     — 5 AI agents (knowledge distiller, repo context, workflow planner, release readiness, proof of work)
-  /workflows  — Main pipeline orchestrator
-  /github     — GitHub API integration
-  /lemma      — Lemma SDK adapter layer
-  /security   — URL safety, prompt injection guard, rate limiting, audit log, secret redaction
-  /scoring    — Evidence-based scoring engines
-  /export     — Markdown export
-  /db         — Database client
-  /config     — Environment configuration
-/prisma        — Database schema and migrations
-```
 
 ## Getting Started
 
@@ -58,12 +47,13 @@ Built for the **Gappy AI National AI Hackathon** powered by Lemma SDK.
 
 ```bash
 # Clone and install
-cd hermes-forge
+git clone <your-repo-url> nexus-forge
+cd nexus-forge
 npm install
 
 # Set up environment
 cp .env.example .env
-# Edit .env if needed (defaults work for local development)
+# Edit .env with your Neon Database URL and Groq API Key
 
 # Initialize database
 npx prisma migrate dev --name init
@@ -78,63 +68,28 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `DATABASE_URL` | No | `file:./hermes-forge.db` | SQLite database path |
+| `DATABASE_URL` | Yes | — | Neon PostgreSQL connection string (`postgresql://...`) |
+| `GROQ_API_KEY` | Yes | — | Groq API Key for agent inference |
+| `GROQ_MODEL` | No | `llama-3.3-70b-versatile` | Groq model to use for agents |
 | `GITHUB_TOKEN` | No | — | GitHub personal access token (for higher API rate limits) |
-| `LEMMA_API_KEY` | No | — | Lemma SDK API key (from lemma.work) |
-| `LEMMA_POD_ID` | No | — | Lemma SDK pod ID |
-| `LEMMA_BASE_URL` | No | `https://api.lemma.work` | Lemma API base URL |
 | `NODE_ENV` | No | `development` | Environment mode |
 | `ANALYSIS_MAX_CONTENT_LENGTH` | No | `100000` | Max content size for sources |
 | `MAX_SOURCES_PER_PROJECT` | No | `20` | Max sources per project |
 | `CORS_ORIGINS` | No | — | Comma-separated allowed origins |
 
-## Usage
+## AI Infrastructure
 
-1. **Create a project** — Name it and optionally link a GitHub repo/PR
-2. **Add sources** — Paste transcripts, blog text, agent chat logs, or upload .txt/.md files
-3. **Add repo/PR URLs** — Link GitHub repository and optional PR
-4. **Run analysis** — The pipeline runs 5 agents
-5. **View results** — Knowledge summary, workflow board, repo review, release report, proof pack
-6. **Export** — Download workflow or proof pack as Markdown
+Nexus Forge is powered by the **Vercel AI SDK** and **Groq**:
+- **Agent Pipeline** — 5 specialized AI agents run continuously in the background via `@ai-sdk/groq` using the ultra-fast `llama-3.3-70b-versatile` model.
+- **Structured Output** — Agents use Vercel AI SDK's `generateText()` paired with strict `zod-to-json-schema` injection to guarantee pristine JSON responses for the UI without hallucinations.
 
-## API Endpoints
+## Security Features
 
-### Projects
-- `POST /api/projects` — Create project
-- `GET /api/projects` — List projects
-- `GET /api/projects/[id]` — Get project with all data
-- `PATCH /api/projects/[id]` — Update project
-- `DELETE /api/projects/[id]` — Delete project
-
-### Sources
-- `POST /api/projects/[id]/sources` — Add source
-- `GET /api/projects/[id]/sources` — List sources
-- `DELETE /api/projects/[id]/sources/[sourceId]` — Delete source
-
-### Analysis
-- `POST /api/projects/[id]/run-analysis` — Run pipeline
-- `GET /api/projects/[id]/knowledge` — Get knowledge summary
-- `GET /api/projects/[id]/repo-analysis` — Get repo analysis
-- `GET /api/projects/[id]/workflow` — Get workflow
-- `GET /api/projects/[id]/release-report` — Get release report
-- `GET /api/projects/[id]/proof-pack` — Get proof pack
-
-### GitHub
-- `POST /api/github/repo-context` — Fetch repo context
-- `POST /api/github/pr-context` — Fetch PR context
-
-### Export
-- `GET /api/projects/[id]/export/workflow.md` — Export workflow as markdown
-- `GET /api/projects/[id]/export/proof-pack.md` — Export proof pack as markdown
-
-## Security
-
-- **URL Safety:** Only HTTPS github.com URLs allowed; SSRF protection prevents access to private IPs/localhost
-- **Prompt Injection Guard:** Detects instruction override, secret extraction, command execution attempts in source content
-- **Secret Redaction:** GitHub tokens, API keys, and credentials are automatically redacted
-- **Rate Limiting:** Analysis endpoint limited to 3 requests per minute per project
-- **Audit Logging:** All important actions logged to database
-- **Input Validation:** Zod validation on all API inputs with content size limits
+- **URL Safety:** Only HTTPS github.com URLs allowed; SSRF protection prevents access to private IPs/localhost.
+- **Prompt Injection Guard:** Detects instruction overrides, secret extraction, and command execution attempts in source content.
+- **Secret Redaction:** GitHub tokens, API keys, and credentials are automatically redacted before hitting the LLM.
+- **Rate Limiting:** Analysis endpoints are limited to 3 requests per minute per project.
+- **Input Validation:** Zod validation on all API inputs with strict content size limits.
 
 ## Testing
 
@@ -145,25 +100,6 @@ npm run lint        # Lint
 npm run typecheck   # Type check
 ```
 
-## Lemma SDK Integration
 
-Hermes Forge uses the **real [Lemma SDK](https://www.npmjs.com/package/lemma-sdk)** (`lemma-sdk@0.5.0`) as its primary infrastructure layer:
 
-- **Datastore** — Project data managed via `LemmaClient.records` (CRUD on Lemma tables)
-- **Document Store** — Source content stored via `LemmaClient.files` (file upload/download)
-- **Agent Runner** — 5 specialized agents run via Lemma's `AgentController` with LLM-powered conversations
-- **Auto-detection** — When `LEMMA_API_KEY` and `LEMMA_POD_ID` are set, Lemma SDK is used automatically. Falls back to local Prisma/rule-based agents when credentials are absent.
 
-Each agent has a system prompt that instructs the Lemma AI agent to produce structured JSON output matching the Zod validation schemas. The pipeline orchestrator selects the Lemma workflow path when configured, or the local path otherwise.
-
-## Submission Notes
-
-- **No fake scores** — All scores are computed from actual evidence
-- **No hardcoded output** — All analysis results are generated from real inputs
-- **No hardcoded secrets** — All configuration via environment variables
-- **Working locally** — SQLite database with full local functionality
-- **Production ready** — Environment validation, error handling, rate limiting
-
-## License
-
-MIT

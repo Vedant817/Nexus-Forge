@@ -1,0 +1,258 @@
+[     924ms] [LOG] [Fast Refresh] done in 1052ms @ http://localhost:3001/_next/static/chunks/0jf0_next_dist_1zlpzra._.js:2477
+[    1581ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:3001/_next/static/chunks/0jf0_next_dist_1zlpzra._.js:2477
+[    1627ms] [LOG] [HMR] connected @ http://localhost:3001/_next/static/chunks/0jf0_next_dist_1zlpzra._.js:2477
+[    9068ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3001/_next/static/chunks/0jf0_next_dist_1zlpzra._.js:2477
+[    9739ms] [LOG] [Fast Refresh] done in 771ms @ http://localhost:3001/_next/static/chunks/0jf0_next_dist_1zlpzra._.js:2477
+[   16671ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3001/_next/static/chunks/0jf0_next_dist_1zlpzra._.js:2477
+[   17275ms] [LOG] [Fast Refresh] done in 708ms @ http://localhost:3001/_next/static/chunks/0jf0_next_dist_1zlpzra._.js:2477
+[   17413ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3001/_next/static/chunks/0jf0_next_dist_1zlpzra._.js:2477
+[   17464ms] [LOG] [Fast Refresh] done in 153ms @ http://localhost:3001/_next/static/chunks/0jf0_next_dist_1zlpzra._.js:2477
+[   38046ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3001/_next/static/chunks/0jf0_next_dist_1zlpzra._.js:2477
+[   39027ms] [ERROR] ./Documents/Code/Gappy-AI-Hack/hermes-forge/src/proxy.ts
+Proxy is missing expected function export name
+This function is what Next.js runs for every request handled by this proxy (previously called middleware).
+
+Why this happens:
+- You are migrating from `middleware` to `proxy`, but haven't updated the exported function.
+- The file exists but doesn't export a function.
+- The export is not a function (e.g., an object or constant).
+- There's a syntax error preventing the export from being recognized.
+
+To fix it:
+- Ensure this file has either a default or "proxy" function export.
+
+Learn more: https://nextjs.org/docs/messages/middleware-to-proxy @ http://localhost:3001/_next/static/chunks/0jf0_next_dist_1zlpzra._.js:3318
+[   39223ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3001/_next/static/chunks/0jf0_next_dist_1zlpzra._.js:2477
+[   39513ms] [ERROR] ./Documents/Code/Gappy-AI-Hack/hermes-forge/src/proxy.ts
+Proxy is missing expected function export name
+This function is what Next.js runs for every request handled by this proxy (previously called middleware).
+
+Why this happens:
+- You are migrating from `middleware` to `proxy`, but haven't updated the exported function.
+- The file exists but doesn't export a function.
+- The export is not a function (e.g., an object or constant).
+- There's a syntax error preventing the export from being recognized.
+
+To fix it:
+- Ensure this file has either a default or "proxy" function export.
+
+Learn more: https://nextjs.org/docs/messages/middleware-to-proxy @ http://localhost:3001/_next/static/chunks/0jf0_next_dist_1zlpzra._.js:3318
+[   39518ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3001/projects/cmqutsfoi0000evxas4qzbbzt/proof?_rsc=qUpeM4broNQP86hG:0
+[   39544ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3001/projects/cmqutsfoi0000evxas4qzbbzt/proof?_rsc=qUpeM4broNQP86hG:0
+[   39560ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3001/projects/cmqutsfoi0000evxas4qzbbzt/proof?_rsc=qUpeM4broNQP86hG:0
+[   39583ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3001/projects/cmqutsfoi0000evxas4qzbbzt/proof?_rsc=qUpeM4broNQP86hG:0
+[   39619ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3001/projects/cmqutsfoi0000evxas4qzbbzt/proof?_rsc=qUpeM4broNQP86hG:0
+[   39628ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3001/_next/static/chunks/0jf0_next_dist_1zlpzra._.js:2477
+[   39637ms] [ERROR] ./Documents/Code/Gappy-AI-Hack/hermes-forge/src/proxy.ts
+Proxy is missing expected function export name
+This function is what Next.js runs for every request handled by this proxy (previously called middleware).
+
+Why this happens:
+- You are migrating from `middleware` to `proxy`, but haven't updated the exported function.
+- The file exists but doesn't export a function.
+- The export is not a function (e.g., an object or constant).
+- There's a syntax error preventing the export from being recognized.
+
+To fix it:
+- Ensure this file has either a default or "proxy" function export.
+
+Learn more: https://nextjs.org/docs/messages/middleware-to-proxy @ http://localhost:3001/_next/static/chunks/0jf0_next_dist_1zlpzra._.js:3318
+[   39672ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3001/projects/cmqutsfoi0000evxas4qzbbzt/proof?_rsc=qUpeM4broNQP86hG:0
+[   39691ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3001/projects/cmqutsfoi0000evxas4qzbbzt/proof?_rsc=qUpeM4broNQP86hG:0
+[   39706ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3001/projects/cmqutsfoi0000evxas4qzbbzt/proof?_rsc=qUpeM4broNQP86hG:0
+[   39742ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3001/_next/static/chunks/0jf0_next_dist_1zlpzra._.js:2477
+[   39762ms] [ERROR] ./Documents/Code/Gappy-AI-Hack/hermes-forge/src/proxy.ts
+Proxy is missing expected function export name
+This function is what Next.js runs for every request handled by this proxy (previously called middleware).
+
+Why this happens:
+- You are migrating from `middleware` to `proxy`, but haven't updated the exported function.
+- The file exists but doesn't export a function.
+- The export is not a function (e.g., an object or constant).
+- There's a syntax error preventing the export from being recognized.
+
+To fix it:
+- Ensure this file has either a default or "proxy" function export.
+
+Learn more: https://nextjs.org/docs/messages/middleware-to-proxy @ http://localhost:3001/_next/static/chunks/0jf0_next_dist_1zlpzra._.js:3318
+[   39763ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3001/projects/cmqutsfoi0000evxas4qzbbzt/proof?_rsc=qUpeM4broNQP86hG:0
+[   39786ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3001/projects/cmqutsfoi0000evxas4qzbbzt/proof:0
+[   39960ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:3001/_next/static/chunks/0jf0_react-dom_12np3xh._.js:15305
+[   40133ms] Error: ./Documents/Code/Gappy-AI-Hack/hermes-forge/src/proxy.ts
+Proxy is missing expected function export name
+This function is what Next.js runs for every request handled by this proxy (previously called middleware).
+
+Why this happens:
+- You are migrating from `middleware` to `proxy`, but haven't updated the exported function.
+- The file exists but doesn't export a function.
+- The export is not a function (e.g., an object or constant).
+- There's a syntax error preventing the export from being recognized.
+
+To fix it:
+- Ensure this file has either a default or "proxy" function export.
+
+Learn more: https://nextjs.org/docs/messages/middleware-to-proxy
+
+
+    at Object.getCompilationErrors (file:///Users/salescode/Documents/Code/Gappy-AI-Hack/hermes-forge/node_modules/next/dist/server/dev/hot-reloader-turbopack.js:1186:59)
+    at DevBundlerService.getCompilationError (file:///Users/salescode/Documents/Code/Gappy-AI-Hack/hermes-forge/node_modules/next/dist/server/lib/dev-bundler-service.js:44:55)
+    at DevServer.getCompilationError (file:///Users/salescode/Documents/Code/Gappy-AI-Hack/hermes-forge/node_modules/next/dist/server/dev/next-dev-server.js:720:42)
+    at DevServer.findPageComponents (file:///Users/salescode/Documents/Code/Gappy-AI-Hack/hermes-forge/node_modules/next/dist/server/dev/next-dev-server.js:690:43)
+    at async DevServer.renderErrorToResponseImpl (file:///Users/salescode/Documents/Code/Gappy-AI-Hack/hermes-forge/node_modules/next/dist/server/base-server.js:1753:26)
+[   40018ms] [LOG] [HMR] connected @ http://localhost:3001/_next/static/chunks/0jf0_next_dist_1doa_d_._.js:1226
+[   40022ms] [ERROR] ./Documents/Code/Gappy-AI-Hack/hermes-forge/src/proxy.ts
+Proxy is missing expected function export name
+This function is what Next.js runs for every request handled by this proxy (previously called middleware).
+
+Why this happens:
+- You are migrating from `middleware` to `proxy`, but haven't updated the exported function.
+- The file exists but doesn't export a function.
+- The export is not a function (e.g., an object or constant).
+- There's a syntax error preventing the export from being recognized.
+
+To fix it:
+- Ensure this file has either a default or "proxy" function export.
+
+Learn more: https://nextjs.org/docs/messages/middleware-to-proxy @ http://localhost:3001/_next/static/chunks/0jf0_next_dist_1doa_d_._.js:1945
+[   40148ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3001/_next/static/chunks/0jf0_next_dist_1doa_d_._.js:1226
+[   40154ms] [ERROR] ./Documents/Code/Gappy-AI-Hack/hermes-forge/src/proxy.ts
+Proxy is missing expected function export name
+This function is what Next.js runs for every request handled by this proxy (previously called middleware).
+
+Why this happens:
+- You are migrating from `middleware` to `proxy`, but haven't updated the exported function.
+- The file exists but doesn't export a function.
+- The export is not a function (e.g., an object or constant).
+- There's a syntax error preventing the export from being recognized.
+
+To fix it:
+- Ensure this file has either a default or "proxy" function export.
+
+Learn more: https://nextjs.org/docs/messages/middleware-to-proxy @ http://localhost:3001/_next/static/chunks/0jf0_next_dist_1doa_d_._.js:1945
+[   40465ms] [ERROR] ./Documents/Code/Gappy-AI-Hack/hermes-forge/src/proxy.ts
+Proxy is missing expected function export name
+This function is what Next.js runs for every request handled by this proxy (previously called middleware).
+
+Why this happens:
+- You are migrating from `middleware` to `proxy`, but haven't updated the exported function.
+- The file exists but doesn't export a function.
+- The export is not a function (e.g., an object or constant).
+- There's a syntax error preventing the export from being recognized.
+
+To fix it:
+- Ensure this file has either a default or "proxy" function export.
+
+Learn more: https://nextjs.org/docs/messages/middleware-to-proxy @ http://localhost:3001/_next/static/chunks/0jf0_next_dist_1doa_d_._.js:1945
+[   40540ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3001/_next/static/chunks/0jf0_next_dist_1doa_d_._.js:1226
+[   45133ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3001/_next/static/chunks/0jf0_next_dist_1doa_d_._.js:1226
+[   45559ms] [LOG] [Fast Refresh] done in 493ms @ http://localhost:3001/_next/static/chunks/0jf0_next_dist_1doa_d_._.js:1226
+[   45776ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3001/__nextjs_original-stack-frames:0
+[   45783ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3001/_next/static/chunks/0jf0_next_dist_1doa_d_._.js:1226
+[   51199ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:3001/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2477
+[   51289ms] [LOG] [HMR] connected @ http://localhost:3001/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2477
+[   51969ms] [ERROR] ./src/proxy.ts
+Proxy is missing expected function export name
+This function is what Next.js runs for every request handled by this proxy (previously called middleware).
+
+Why this happens:
+- You are migrating from `middleware` to `proxy`, but haven't updated the exported function.
+- The file exists but doesn't export a function.
+- The export is not a function (e.g., an object or constant).
+- There's a syntax error preventing the export from being recognized.
+
+To fix it:
+- Ensure this file has either a default or "proxy" function export.
+
+Learn more: https://nextjs.org/docs/messages/middleware-to-proxy @ http://localhost:3001/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:3318
+[   53448ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3001/api/projects/cmqutsfoi0000evxas4qzbbzt/proof-pack:0
+[   56904ms] [ERROR] WebSocket connection to 'ws://localhost:3001/_next/webpack-hmr?id=V3ksnD9H1kl7TH19AnUrY' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3001/_next/static/chunks/node_modules_next_dist_client_0r5nbpw._.js:13422
+[   58664ms] [LOG] [HMR] connected @ http://localhost:3001/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2477
+[   61781ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3001/projects/cmqutsfoi0000evxas4qzbbzt/proof:0
+[   61913ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:3001/_next/static/chunks/node_modules_react-dom_0kla17-._.js:15305
+[   61993ms] Error: ./src/proxy.ts
+Proxy is missing expected function export name
+This function is what Next.js runs for every request handled by this proxy (previously called middleware).
+
+Why this happens:
+- You are migrating from `middleware` to `proxy`, but haven't updated the exported function.
+- The file exists but doesn't export a function.
+- The export is not a function (e.g., an object or constant).
+- There's a syntax error preventing the export from being recognized.
+
+To fix it:
+- Ensure this file has either a default or "proxy" function export.
+
+Learn more: https://nextjs.org/docs/messages/middleware-to-proxy
+
+
+    at Object.getCompilationErrors (file:///Users/salescode/Documents/Code/Gappy-AI-Hack/hermes-forge/node_modules/next/dist/server/dev/hot-reloader-turbopack.js:1186:59)
+    at DevBundlerService.getCompilationError (file:///Users/salescode/Documents/Code/Gappy-AI-Hack/hermes-forge/node_modules/next/dist/server/lib/dev-bundler-service.js:44:55)
+    at DevServer.getCompilationError (file:///Users/salescode/Documents/Code/Gappy-AI-Hack/hermes-forge/node_modules/next/dist/server/dev/next-dev-server.js:720:42)
+    at DevServer.findPageComponents (file:///Users/salescode/Documents/Code/Gappy-AI-Hack/hermes-forge/node_modules/next/dist/server/dev/next-dev-server.js:690:43)
+    at async DevServer.renderErrorToResponseImpl (file:///Users/salescode/Documents/Code/Gappy-AI-Hack/hermes-forge/node_modules/next/dist/server/base-server.js:1753:26)
+[   61987ms] [LOG] [HMR] connected @ http://localhost:3001/_next/static/chunks/node_modules_next_dist_0zk-zb1._.js:1226
+[   61993ms] [ERROR] ./src/proxy.ts
+Proxy is missing expected function export name
+This function is what Next.js runs for every request handled by this proxy (previously called middleware).
+
+Why this happens:
+- You are migrating from `middleware` to `proxy`, but haven't updated the exported function.
+- The file exists but doesn't export a function.
+- The export is not a function (e.g., an object or constant).
+- There's a syntax error preventing the export from being recognized.
+
+To fix it:
+- Ensure this file has either a default or "proxy" function export.
+
+Learn more: https://nextjs.org/docs/messages/middleware-to-proxy @ http://localhost:3001/_next/static/chunks/node_modules_next_dist_0zk-zb1._.js:1945
+[   85474ms] [ERROR] WebSocket connection to 'ws://localhost:3001/_next/webpack-hmr' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3001/_next/static/chunks/node_modules_next_dist_client_16lnmlo._.js:2343
+[   86481ms] [ERROR] WebSocket connection to 'ws://localhost:3001/_next/webpack-hmr' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3001/_next/static/chunks/node_modules_next_dist_client_16lnmlo._.js:2343
+[   87484ms] [ERROR] WebSocket connection to 'ws://localhost:3001/_next/webpack-hmr' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3001/_next/static/chunks/node_modules_next_dist_client_16lnmlo._.js:2343
+[   88486ms] [ERROR] WebSocket connection to 'ws://localhost:3001/_next/webpack-hmr' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3001/_next/static/chunks/node_modules_next_dist_client_16lnmlo._.js:2343
+[   89488ms] [ERROR] WebSocket connection to 'ws://localhost:3001/_next/webpack-hmr' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3001/_next/static/chunks/node_modules_next_dist_client_16lnmlo._.js:2343
+[   94491ms] [ERROR] WebSocket connection to 'ws://localhost:3001/_next/webpack-hmr' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3001/_next/static/chunks/node_modules_next_dist_client_16lnmlo._.js:2343
+[   99494ms] [ERROR] WebSocket connection to 'ws://localhost:3001/_next/webpack-hmr' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3001/_next/static/chunks/node_modules_next_dist_client_16lnmlo._.js:2343
+[  104603ms] [LOG] [HMR] connected @ http://localhost:3001/_next/static/chunks/node_modules_next_dist_0zk-zb1._.js:1226
+[  106846ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:3001/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2477
+[  106900ms] [LOG] [HMR] connected @ http://localhost:3001/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2477
+[  317967ms] [ERROR] WebSocket connection to 'ws://localhost:3001/_next/webpack-hmr?id=vj6GsLPahciy-ahbz7LWm' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3001/_next/static/chunks/node_modules_next_dist_client_0r5nbpw._.js:13422
+[  318972ms] [ERROR] WebSocket connection to 'ws://localhost:3001/_next/webpack-hmr?id=vj6GsLPahciy-ahbz7LWm' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3001/_next/static/chunks/node_modules_next_dist_client_0r5nbpw._.js:13422
+[  320365ms] [LOG] [HMR] connected @ http://localhost:3001/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2477
+[  324621ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:3001/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2477
+[  324791ms] [LOG] [HMR] connected @ http://localhost:3001/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2477
+[  325147ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3001/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2477
+[  325549ms] [LOG] [Fast Refresh] done in 504ms @ http://localhost:3001/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2477
+[  326196ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3001/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2477
+[  326386ms] [LOG] [Fast Refresh] done in 295ms @ http://localhost:3001/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2477
+[  337119ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3001/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2477
+[  337357ms] [LOG] [Fast Refresh] done in 339ms @ http://localhost:3001/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2477
+[  337658ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3001/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2477
+[  337777ms] [LOG] [Fast Refresh] done in 220ms @ http://localhost:3001/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2477
+[  338065ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3001/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2477
+[  338160ms] [LOG] [Fast Refresh] done in 197ms @ http://localhost:3001/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2477
+[  358554ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3001/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2477
+[  358831ms] [LOG] [Fast Refresh] done in 379ms @ http://localhost:3001/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2477
+[  358941ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3001/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2477
+[  359149ms] [LOG] [Fast Refresh] done in 310ms @ http://localhost:3001/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2477
+[  359264ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3001/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2477
+[  359370ms] [LOG] [Fast Refresh] done in 208ms @ http://localhost:3001/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2477
+[  359877ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3001/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2477
+[  359989ms] [LOG] [Fast Refresh] done in 212ms @ http://localhost:3001/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2477
+[  360272ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3001/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2477
+[  360413ms] [LOG] [Fast Refresh] done in 243ms @ http://localhost:3001/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2477
+[  360946ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3001/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2477
+[  361164ms] [LOG] [Fast Refresh] done in 319ms @ http://localhost:3001/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2477
+[  364221ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3001/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2477
+[  364364ms] [LOG] [Fast Refresh] done in 246ms @ http://localhost:3001/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2477
+[  373268ms] [ERROR] WebSocket connection to 'ws://localhost:3001/_next/webpack-hmr?id=P2dcl5cXTBK-oWzkQnWEu' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3001/_next/static/chunks/node_modules_next_dist_client_0r5nbpw._.js:13422
+[  374271ms] [ERROR] WebSocket connection to 'ws://localhost:3001/_next/webpack-hmr?id=P2dcl5cXTBK-oWzkQnWEu' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3001/_next/static/chunks/node_modules_next_dist_client_0r5nbpw._.js:13422
+[  375273ms] [ERROR] WebSocket connection to 'ws://localhost:3001/_next/webpack-hmr?id=P2dcl5cXTBK-oWzkQnWEu' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3001/_next/static/chunks/node_modules_next_dist_client_0r5nbpw._.js:13422
+[  376276ms] [ERROR] WebSocket connection to 'ws://localhost:3001/_next/webpack-hmr?id=P2dcl5cXTBK-oWzkQnWEu' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3001/_next/static/chunks/node_modules_next_dist_client_0r5nbpw._.js:13422
+[  377278ms] [ERROR] WebSocket connection to 'ws://localhost:3001/_next/webpack-hmr?id=P2dcl5cXTBK-oWzkQnWEu' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3001/_next/static/chunks/node_modules_next_dist_client_0r5nbpw._.js:13422
+[  382282ms] [ERROR] WebSocket connection to 'ws://localhost:3001/_next/webpack-hmr?id=P2dcl5cXTBK-oWzkQnWEu' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3001/_next/static/chunks/node_modules_next_dist_client_0r5nbpw._.js:13422
+[  387285ms] [ERROR] WebSocket connection to 'ws://localhost:3001/_next/webpack-hmr?id=P2dcl5cXTBK-oWzkQnWEu' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3001/_next/static/chunks/node_modules_next_dist_client_0r5nbpw._.js:13422
+[  392293ms] [ERROR] WebSocket connection to 'ws://localhost:3001/_next/webpack-hmr?id=P2dcl5cXTBK-oWzkQnWEu' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3001/_next/static/chunks/node_modules_next_dist_client_0r5nbpw._.js:13422
+[  397300ms] [ERROR] WebSocket connection to 'ws://localhost:3001/_next/webpack-hmr?id=P2dcl5cXTBK-oWzkQnWEu' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3001/_next/static/chunks/node_modules_next_dist_client_0r5nbpw._.js:13422
+[  402306ms] [ERROR] WebSocket connection to 'ws://localhost:3001/_next/webpack-hmr?id=P2dcl5cXTBK-oWzkQnWEu' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3001/_next/static/chunks/node_modules_next_dist_client_0r5nbpw._.js:13422
+[  407313ms] [ERROR] WebSocket connection to 'ws://localhost:3001/_next/webpack-hmr?id=P2dcl5cXTBK-oWzkQnWEu' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3001/_next/static/chunks/node_modules_next_dist_client_0r5nbpw._.js:13422
+[  412318ms] [ERROR] WebSocket connection to 'ws://localhost:3001/_next/webpack-hmr?id=P2dcl5cXTBK-oWzkQnWEu' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3001/_next/static/chunks/node_modules_next_dist_client_0r5nbpw._.js:13422

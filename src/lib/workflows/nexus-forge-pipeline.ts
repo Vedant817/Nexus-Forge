@@ -1,5 +1,6 @@
 import prisma from '@/lib/db/prisma'
-import { getDocumentStore, getAgentRunner } from '@/lib/lemma/lemma-client'
+import { getDocumentStore } from '@/lib/db/store'
+import { getAgentRunner } from '@/lib/agents/ai-runner'
 import { fetchRepoContext, fetchPRContext } from '@/lib/github'
 import { logAudit } from '@/lib/security/audit-log'
 import { redactSecrets } from '@/lib/security/secret-redaction'
@@ -12,7 +13,7 @@ import type {
   ProofOfWorkInput,
 } from '@/types'
 
-export async function runHermesForgePipeline(projectId: string): Promise<PipelineResult> {
+export async function runNexusForgePipeline(projectId: string): Promise<PipelineResult> {
   const project = await prisma.project.findUnique({
     where: { id: projectId },
     include: { sources: true },
@@ -58,6 +59,7 @@ export async function runHermesForgePipeline(projectId: string): Promise<Pipelin
     }))
 
     const knowledgeInput: KnowledgeDistillerInput = { sources }
+    await prisma.project.update({ where: { id: projectId }, data: { status: 'analyzing:knowledge' } })
     const knowledgeOutput = await agentRunner.runKnowledgeDistiller(knowledgeInput)
     await logAudit('agent_completed', 'Knowledge Distiller finished', projectId)
 
@@ -121,6 +123,7 @@ export async function runHermesForgePipeline(projectId: string): Promise<Pipelin
           envExample: repoContext.envExample,
         }
 
+        await prisma.project.update({ where: { id: projectId }, data: { status: 'analyzing:repo' } })
         repoAnalysisOutput = await agentRunner.runRepoContextAgent(repoInput)
         await logAudit('agent_completed', 'Repo Context Agent finished', projectId)
 
@@ -165,6 +168,7 @@ export async function runHermesForgePipeline(projectId: string): Promise<Pipelin
       repoAnalysis: repoAnalysisOutput,
     }
 
+    await prisma.project.update({ where: { id: projectId }, data: { status: 'analyzing:workflow' } })
     const workflowOutput = await agentRunner.runWorkflowPlanner(workflowInput)
     await logAudit('agent_completed', 'Workflow Planner finished', projectId)
 
@@ -215,6 +219,7 @@ export async function runHermesForgePipeline(projectId: string): Promise<Pipelin
         repoAnalysis: repoAnalysisOutput,
       }
 
+      await prisma.project.update({ where: { id: projectId }, data: { status: 'analyzing:release' } })
       releaseOutput = await agentRunner.runReleaseReadiness(releaseInput)
       await logAudit('agent_completed', 'Release Readiness Agent finished', projectId)
 
@@ -258,6 +263,7 @@ export async function runHermesForgePipeline(projectId: string): Promise<Pipelin
       finalSummary: `Completed analysis of ${project.sources.length} sources${project.repoUrl ? ' and repo ' + project.repoUrl : ''}`,
     }
 
+    await prisma.project.update({ where: { id: projectId }, data: { status: 'analyzing:proof' } })
     const proofOutput = await agentRunner.runProofOfWork(proofInput)
     await logAudit('agent_completed', 'Proof of Work Agent finished', projectId)
 

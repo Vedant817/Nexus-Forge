@@ -1,8 +1,8 @@
-import { NextResponse } from 'next/server'
+import { NextResponse, after } from 'next/server'
 import prisma from '@/lib/db/prisma'
 import { checkRateLimit } from '@/lib/security/rate-limit'
 import { logAudit } from '@/lib/security/audit-log'
-import { runHermesForgePipeline } from '@/lib/workflows/hermes-forge-pipeline'
+import { runNexusForgePipeline } from '@/lib/workflows/nexus-forge-pipeline'
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -35,20 +35,24 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     await logAudit('analysis_started', 'API: Analysis requested', id)
 
     const TIMEOUT_MS = 5 * 60 * 1000
-    const timeoutPromise = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('Analysis timed out after 5 minutes')), TIMEOUT_MS)
-    )
     
-    // Fire and forget
-    Promise.race([runHermesForgePipeline(id), timeoutPromise]).catch(async (err) => {
-      const message = err instanceof Error ? err.message : 'Analysis failed'
-      await logAudit('analysis_failed', message, id)
+    after(async () => {
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Analysis timed out after 5 minutes')), TIMEOUT_MS)
+      )
+      
       try {
-        await prisma.project.update({
-          where: { id },
-          data: { status: 'error' }
-        })
-      } catch (e) {}
+        await Promise.race([runNexusForgePipeline(id), timeoutPromise])
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Analysis failed'
+        await logAudit('analysis_failed', message, id)
+        try {
+          await prisma.project.update({
+            where: { id },
+            data: { status: 'error' }
+          })
+        } catch (e) {}
+      }
     })
 
     return NextResponse.json({ success: true, message: 'Analysis started in the background' }, { status: 202 })

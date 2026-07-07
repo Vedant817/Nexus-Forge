@@ -7,7 +7,7 @@ export async function qualityGenerator(
   acceptance: string,
   projectContext: string,
 ): Promise<QualityGeneratorOutput> {
-  const { getAgentRunner } = await import('@/lib/lemma/lemma-client')
+  const { getAgentRunner } = await import('@/lib/agents/ai-runner')
   const runner = await getAgentRunner()
 
   const input = {
@@ -40,7 +40,7 @@ export function getGeneratorPrompt(
     ? `\n\nPrevious attempt failed evaluation. Feedback to address:\n${evaluatorFeedback}`
     : ''
 
-  return `You are a Quality Generator implementing one unit of work for the Hermes Forge project.
+  return `You are a Quality Generator implementing one unit of work for the Nexus Forge project.
 
 ## Unit: ${unitTitle}
 ${unitDescription}

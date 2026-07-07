@@ -1,7 +1,7 @@
 import type { QualityPlannerOutput } from './quality-agent-schemas'
 
 export async function qualityPlanner(goal: string): Promise<QualityPlannerOutput> {
-  const { getAgentRunner } = await import('@/lib/lemma/lemma-client')
+  const { getAgentRunner } = await import('@/lib/agents/ai-runner')
   const runner = await getAgentRunner()
 
   const input = {
@@ -13,7 +13,7 @@ export async function qualityPlanner(goal: string): Promise<QualityPlannerOutput
 3. Break the work into discrete units, each one file-change-sized
 4. Choose which quality criteria to enforce
 
-Current project is Hermes Forge (Next.js 16, TypeScript, Tailwind, Prisma, Lemma SDK, Zod).
+Current project is Nexus Forge (Next.js 16, TypeScript, Tailwind, Prisma, Lemma SDK, Zod).
 
 Return valid JSON matching the schema.`,
   }
@@ -22,7 +22,7 @@ Return valid JSON matching the schema.`,
 }
 
 export function getPlannerPrompt(goal: string): string {
-  return `You are a Quality Planner for the Hermes Forge project (Next.js 16, TypeScript, Tailwind, Prisma, Lemma SDK, Zod).
+  return `You are a Quality Planner for the Nexus Forge project (Next.js 16, TypeScript, Tailwind, Prisma, Lemma SDK, Zod).
 
 Goal: ${goal}
 
