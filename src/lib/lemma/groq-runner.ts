@@ -81,39 +81,37 @@ Review the runner results and provide:
 Return valid JSON matching the quality evaluator output schema with an additional "analysis" field.`,
 }
 
-interface OpenRouterMessage {
+interface GroqMessage {
   role: 'system' | 'user' | 'assistant'
   content: string
 }
 
-interface OpenRouterResponse {
+interface GroqResponse {
   choices: { message: { content: string } }[]
 }
 
-async function runAgentViaOpenRouter<T>(
+async function runAgentViaGroq<T>(
   agentName: string,
   systemInstruction: string,
   input: unknown,
   schema: z.ZodSchema<T>,
 ): Promise<T> {
-  const apiKey = config.OPENROUTER_API_KEY
-  if (!apiKey) throw new Error('OpenRouter API key not configured — set OPENROUTER_API_KEY')
+  const apiKey = config.GROQ_API_KEY
+  if (!apiKey) throw new Error('Groq API key not configured — set GROQ_API_KEY')
 
-  const messages: OpenRouterMessage[] = [
+  const messages: GroqMessage[] = [
     { role: 'system', content: systemInstruction },
     { role: 'user', content: JSON.stringify(input, null, 2) },
   ]
 
-  const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+  const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${apiKey}`,
-      'HTTP-Referer': 'https://hermes-forge.app',
-      'X-Title': 'Hermes Forge',
     },
     body: JSON.stringify({
-      model: config.OPENROUTER_MODEL,
+      model: config.GROQ_MODEL,
       messages,
       temperature: 0.3,
       max_tokens: 4096,
@@ -123,10 +121,10 @@ async function runAgentViaOpenRouter<T>(
 
   if (!res.ok) {
     const body = await res.text().catch(() => '')
-    throw new Error(`OpenRouter API error ${res.status}: ${body}`)
+    throw new Error(`Groq API error ${res.status}: ${body}`)
   }
 
-  const data: OpenRouterResponse = await res.json()
+  const data: GroqResponse = await res.json()
   const outputText = data.choices?.[0]?.message?.content || ''
 
   let parsed: unknown
@@ -142,10 +140,10 @@ async function runAgentViaOpenRouter<T>(
 function makeRunner(agentName: string): <T>(input: unknown, schema: z.ZodSchema<T>) => Promise<T> {
   const instruction = AGENT_SYSTEM_INSTRUCTIONS[agentName]
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return (input, schema) => runAgentViaOpenRouter(agentName, instruction, input, schema) as Promise<any>
+  return (input, schema) => runAgentViaGroq(agentName, instruction, input, schema) as Promise<any>
 }
 
-export class OpenRouterAgentRunner implements AgentRunnerAdapter {
+export class GroqAgentRunner implements AgentRunnerAdapter {
   async runKnowledgeDistiller(input: KnowledgeDistillerInput): Promise<KnowledgeDistillerOutput> {
     const { knowledgeDistillerOutputSchema } = await import('@/lib/agents/agent-schemas')
     return makeRunner('knowledge-distiller')(input, knowledgeDistillerOutputSchema)

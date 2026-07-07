@@ -125,7 +125,7 @@ async function runSecurityCheck(): Promise<CheckResult> {
     const critical = lines.filter(l =>
       !l.includes('GITHUB_TOKEN') &&
       !l.includes('LEMMA_API_KEY') &&
-      !l.includes('OPENROUTER_API_KEY') &&
+      !l.includes('GROQ_API_KEY') &&
       !l.includes('process.env') &&
       !l.includes('env.') &&
       !l.includes('config.'),

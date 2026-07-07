@@ -456,9 +456,9 @@ export async function getAgentRunner(): Promise<AgentRunnerAdapter> {
   if (_agentRunner) return _agentRunner
   if (getLemmaClient()) {
     _agentRunner = new LemmaAgentRunner()
-  } else if (config.OPENROUTER_API_KEY) {
-    const { OpenRouterAgentRunner } = await import('./openrouter-runner')
-    _agentRunner = new OpenRouterAgentRunner() as AgentRunnerAdapter
+  } else if (config.GROQ_API_KEY) {
+    const { GroqAgentRunner } = await import('./groq-runner')
+    _agentRunner = new GroqAgentRunner() as AgentRunnerAdapter
   } else {
     _agentRunner = new LocalAgentRunner()
   }

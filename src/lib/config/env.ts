@@ -23,11 +23,11 @@ const env = {
   get LEMMA_BASE_URL(): string {
     return process.env.LEMMA_BASE_URL || 'https://api.lemma.work'
   },
-  get OPENROUTER_API_KEY(): string | undefined {
-    return process.env.OPENROUTER_API_KEY
+  get GROQ_API_KEY(): string | undefined {
+    return process.env.GROQ_API_KEY
   },
-  get OPENROUTER_MODEL(): string {
-    return process.env.OPENROUTER_MODEL || 'qwen/qwen3-coder:free'
+  get GROQ_MODEL(): string {
+    return process.env.GROQ_MODEL || 'llama-3.3-70b-versatile'
   },
 
   validate(): string[] {
