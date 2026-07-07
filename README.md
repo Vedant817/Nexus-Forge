@@ -21,8 +21,20 @@ Nexus Forge doesn't just write code—it manages the **entire builder journey**.
 - **Knowledge Distillation** — Extracts key concepts, architectural patterns, and actionable build tasks from raw learning sources.
 - **Repo Context Analysis** — Scores your repository's maturity based on actual evidence (README quality, test coverage, CI/CD pipelines, Docker setup, and environment safety).
 - **Workflow Planner** — Generates a Kanban-style build board. Every task includes a **copyable AI agent prompt** that you can paste directly into coding agents like Cursor or Claude Code.
+- **Cursor / IDE Context Bridge** — Export your "In Progress" Kanban tasks directly into a `.cursorrules` file. Drop it in your local repository to perfectly prime your local AI editor with the global project objective, architecture constraints, and exact task criteria.
+- **Living Architecture Map** — Generates a beautiful, interactive, and draggable React Flow node graph mapping out your entire software system based on the repository analysis—the ultimate developer onboarding tool.
 - **Release Readiness Reviewer** — Provides evidence-based scoring (Go / Go-with-fixes / No-Go) highlighting the exact gaps preventing a production release.
 - **Proof-of-Work Generator** — Automatically generates a portfolio summary, resume bullets, demo scripts, technical interview explanations, and LinkedIn posts.
+- **Auto-Marketing GitHub Webhooks** — Hook Nexus Forge into your GitHub repository. Every time you merge a PR, the AI instantly writes and updates your LinkedIn post and Resume bullet based on what you just shipped!
+
+## How to Integrate Nexus Forge into Your Daily Workflow
+
+Nexus Forge is designed to bridge the gap between "planning" and "doing". Here is the optimal daily workflow:
+
+1. **Ingest & Map:** Start by dropping your GitHub repo URL and any relevant learning materials (blog posts, transcripts) into the Intake tab. Run the analysis to generate your **Living Architecture Map** so you understand exactly how the system connects.
+2. **Plan & Sync:** Go to the Workflow tab. You'll see a Kanban board of AI-generated build tasks. Drag a task to "In Progress", click **Sync to IDE (.cursorrules)**, and drop that file into your local project root.
+3. **Build:** Open Cursor or Copilot. Your AI editor now has perfect context about your global objective, architecture, and exact task criteria. Tell your AI editor to "Build the current task" and watch it write accurate code without hallucinating.
+4. **Ship & Auto-Market:** Push your code and open a Pull Request. When you merge it, your configured **Nexus Forge Webhook** will automatically catch the merge, analyze the PR, and instantly generate a viral LinkedIn post and a polished resume bullet point for your portfolio.
 
 ## Tech Stack
 
