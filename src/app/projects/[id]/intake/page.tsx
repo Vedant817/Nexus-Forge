@@ -27,6 +27,7 @@ export default function IntakePage() {
   const [error, setError] = useState("")
   const [submitting, setSubmitting] = useState(false)
   const [uploading, setUploading] = useState(false)
+  const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [repoUrl, setRepoUrl] = useState("")
   const [prUrl, setPrUrl] = useState("")
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -236,11 +237,12 @@ export default function IntakePage() {
 
       {sources.length > 0 && (
         <div className="flex justify-center mt-6">
-          <Button onClick={async () => {
+          <Button disabled={isAnalyzing} onClick={async () => {
+            setIsAnalyzing(true)
             await fetch(`/api/projects/${params.id}/run-analysis`, { method: "POST" })
             router.push(`/projects/${params.id}`)
           }}>
-            Run Analysis
+            {isAnalyzing ? "Starting Analysis..." : "Run Analysis"}
           </Button>
         </div>
       )}

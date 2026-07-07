@@ -50,13 +50,24 @@ export default function ProjectPage() {
   }, [params.id])
 
   useEffect(() => {
+    let id: ReturnType<typeof setInterval>
     if (isAnalyzing) {
-      const id = setInterval(() => {
+      id = setInterval(() => {
         fetch(`/api/projects/${params.id}`)
           .then(res => res.ok ? res.json() : null)
-          .then(data => { if (data) { setProject(data); if (data.status !== "analyzing") setOptimisticAnalyzing(false) } })
+          .then(data => { 
+            if (data) { 
+              setProject(data)
+              if (data.status !== "analyzing") {
+                setOptimisticAnalyzing(false)
+                clearInterval(id)
+              }
+            } 
+          })
       }, 2000)
-      return () => clearInterval(id)
+    }
+    return () => {
+      if (id) clearInterval(id)
     }
   }, [isAnalyzing, params.id])
 
@@ -74,11 +85,11 @@ export default function ProjectPage() {
   ]
 
   const chartData = []
-  if (project.repoAnalysis && typeof (project.repoAnalysis as any).maturityScore === 'number') {
-    chartData.push({ name: 'Maturity', score: (project.repoAnalysis as any).maturityScore })
+  if (project.repoAnalysis && typeof project.repoAnalysis === 'object' && 'maturityScore' in project.repoAnalysis && typeof project.repoAnalysis.maturityScore === 'number') {
+    chartData.push({ name: 'Maturity', score: project.repoAnalysis.maturityScore })
   }
-  if (project.proofPack && typeof (project.proofPack as any).proofScore === 'number') {
-    chartData.push({ name: 'Proof', score: (project.proofPack as any).proofScore })
+  if (project.proofPack && typeof project.proofPack === 'object' && 'proofScore' in project.proofPack && typeof project.proofPack.proofScore === 'number') {
+    chartData.push({ name: 'Proof', score: project.proofPack.proofScore })
   }
 
   return (

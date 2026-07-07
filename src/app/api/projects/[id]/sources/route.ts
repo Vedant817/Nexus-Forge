@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import config from '@/lib/config/env'
 import prisma from '@/lib/db/prisma'
 import { createSourceSchema } from '@/lib/security/validation'
 import { checkPromptInjection } from '@/lib/security/prompt-injection-guard'
@@ -16,13 +17,19 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     return NextResponse.json({ error: 'Failed to fetch sources' }, { status: 500 })
   }
 }
-
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   try {
-    const project = await prisma.project.findUnique({ where: { id } })
+    const project = await prisma.project.findUnique({ 
+      where: { id },
+      include: { _count: { select: { sources: true } } }
+    })
     if (!project) {
       return NextResponse.json({ error: 'Project not found' }, { status: 404 })
+    }
+
+    if (project._count.sources >= config.MAX_SOURCES_PER_PROJECT) {
+      return NextResponse.json({ error: `Maximum of ${config.MAX_SOURCES_PER_PROJECT} sources per project reached.` }, { status: 400 })
     }
 
     const body = await request.json()
