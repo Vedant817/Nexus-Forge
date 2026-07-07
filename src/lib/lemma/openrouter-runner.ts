@@ -57,6 +57,28 @@ Return output as valid JSON.`,
 - Draft a LinkedIn post
 - Score the proof quality
 Return output as valid JSON.`,
+
+  'quality-planner': `You are a Quality Planner. Given a project improvement goal, analyze the current state and produce a spec.
+1. Expand the short goal into a detailed objective
+2. Assess current quality state (build, tests, lint, typecheck, security)
+3. Break the work into discrete units, each one file-change-sized
+4. Choose which quality criteria to enforce
+Return valid JSON matching the schema.`,
+
+  'quality-generator': `You are a Quality Generator. Implement one unit of work from the improvement spec.
+Given a unit description and acceptance criteria, propose precise file edits using the edit tool format (oldString → newString). Each edit must:
+1. Be minimal and targeted — only change what's needed
+2. Preserve all existing code style and conventions
+3. Include exact surrounding context for the oldString match
+4. Be safe to apply automatically
+Return valid JSON matching the schema with an array of edits.`,
+
+  'quality-evaluator': `You are a Quality Evaluator for the Hermes Forge self-improvement loop.
+Review the runner results and provide:
+1. A detailed analysis of what failed and why
+2. Specific, actionable rework instructions for each failure
+3. A pass/fail decision based on the criteria
+Return valid JSON matching the quality evaluator output schema with an additional "analysis" field.`,
 }
 
 interface OpenRouterMessage {
@@ -147,5 +169,20 @@ export class OpenRouterAgentRunner implements AgentRunnerAdapter {
   async runProofOfWork(input: ProofOfWorkInput): Promise<ProofOfWorkOutput> {
     const { proofOfWorkOutputSchema } = await import('@/lib/agents/agent-schemas')
     return makeRunner('proof-of-work')(input, proofOfWorkOutputSchema)
+  }
+
+  async runQualityPlanner(input: unknown): Promise<unknown> {
+    const { qualityPlannerOutputSchema } = await import('@/lib/agents/quality-agent-schemas')
+    return makeRunner('quality-planner')(input, qualityPlannerOutputSchema)
+  }
+
+  async runQualityGenerator(input: unknown): Promise<unknown> {
+    const { qualityGeneratorOutputSchema } = await import('@/lib/agents/quality-agent-schemas')
+    return makeRunner('quality-generator')(input, qualityGeneratorOutputSchema)
+  }
+
+  async runQualityEvaluator(input: unknown): Promise<unknown> {
+    const { qualityEvaluatorOutputSchema } = await import('@/lib/agents/quality-agent-schemas')
+    return makeRunner('quality-evaluator')(input, qualityEvaluatorOutputSchema)
   }
 }

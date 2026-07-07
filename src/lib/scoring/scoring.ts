@@ -71,7 +71,7 @@ export function computeRepoMaturityScore(params: {
   }
 
   return {
-    score,
+    score: Math.max(0, Math.min(100, Math.round(score))),
     maxScore: 100,
     reasons,
     positiveEvidence,
@@ -134,7 +134,7 @@ export function computeReleaseScore(params: {
   }
 
   return {
-    score: Math.min(100, score),
+    score: Math.max(0, Math.min(100, Math.round(score))),
     maxScore: 100,
     reasons,
     positiveEvidence,
@@ -199,7 +199,7 @@ export function computeProofScore(params: {
   }
 
   return {
-    score: Math.min(100, score),
+    score: Math.max(0, Math.min(100, Math.round(score))),
     maxScore: 100,
     reasons,
     positiveEvidence,

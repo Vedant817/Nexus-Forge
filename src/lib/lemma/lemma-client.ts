@@ -230,9 +230,26 @@ export class LemmaDocumentStore implements DocumentStoreAdapter {
   }
 
   async store(id: string, content: string, _metadata?: Record<string, string>) {
-    void _metadata
     const blob = new Blob([content], { type: 'text/plain' })
     await this.files.upload(blob, { name: `sources/${id}.txt` })
+    
+    // Also store metadata in Prisma so the source shows up in the UI
+    if (_metadata?.projectId) {
+      await prisma.source.upsert({
+        where: { id },
+        create: {
+          id,
+          projectId: _metadata.projectId,
+          type: _metadata.type || 'docs',
+          title: _metadata.title || '',
+          rawContent: content.substring(0, 500) + '... (content stored in Lemma)',
+          documentId: id,
+        },
+        update: {
+          title: _metadata?.title ?? undefined,
+        },
+      })
+    }
   }
 
   async get(id: string): Promise<string | null> {
@@ -282,6 +299,9 @@ export interface AgentRunnerAdapter {
   runWorkflowPlanner(input: WorkflowPlannerInput): Promise<WorkflowPlannerOutput>
   runReleaseReadiness(input: ReleaseReadinessInput): Promise<ReleaseReadinessOutput>
   runProofOfWork(input: ProofOfWorkInput): Promise<ProofOfWorkOutput>
+  runQualityPlanner?(input: unknown): Promise<unknown>
+  runQualityGenerator?(input: unknown): Promise<unknown>
+  runQualityEvaluator?(input: unknown): Promise<unknown>
 }
 
 export function validateOrThrow<T>(label: string, schema: z.ZodSchema<T>, data: unknown): T {
@@ -360,6 +380,10 @@ export class LocalAgentRunner implements AgentRunnerAdapter {
     const output = await proofOfWorkAgent(input)
     return validateOrThrow('ProofOfWork', proofOfWorkOutputSchema, output)
   }
+
+  async runQualityPlanner() { throw new Error('Local Quality Planner not implemented') }
+  async runQualityGenerator() { throw new Error('Local Quality Generator not implemented') }
+  async runQualityEvaluator() { throw new Error('Local Quality Evaluator not implemented') }
 }
 
 export class LemmaAgentRunner implements AgentRunnerAdapter {
@@ -386,6 +410,21 @@ export class LemmaAgentRunner implements AgentRunnerAdapter {
   async runProofOfWork(input: ProofOfWorkInput): Promise<ProofOfWorkOutput> {
     const { proofOfWorkOutputSchema } = await import('@/lib/agents/agent-schemas')
     return runAgentViaLemma('proof-of-work', input, proofOfWorkOutputSchema)
+  }
+
+  async runQualityPlanner(input: unknown): Promise<unknown> {
+    const { qualityPlannerOutputSchema } = await import('@/lib/agents/quality-agent-schemas')
+    return runAgentViaLemma('quality-planner', input, qualityPlannerOutputSchema)
+  }
+
+  async runQualityGenerator(input: unknown): Promise<unknown> {
+    const { qualityGeneratorOutputSchema } = await import('@/lib/agents/quality-agent-schemas')
+    return runAgentViaLemma('quality-generator', input, qualityGeneratorOutputSchema)
+  }
+
+  async runQualityEvaluator(input: unknown): Promise<unknown> {
+    const { qualityEvaluatorOutputSchema } = await import('@/lib/agents/quality-agent-schemas')
+    return runAgentViaLemma('quality-evaluator', input, qualityEvaluatorOutputSchema)
   }
 }
 

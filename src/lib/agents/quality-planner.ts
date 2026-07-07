@@ -18,8 +18,7 @@ Current project is Hermes Forge (Next.js 16, TypeScript, Tailwind, Prisma, Lemma
 Return valid JSON matching the schema.`,
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return runner.runProofOfWork(input as any) as unknown as QualityPlannerOutput
+  return runner.runQualityPlanner!(input) as unknown as QualityPlannerOutput
 }
 
 export function getPlannerPrompt(goal: string): string {

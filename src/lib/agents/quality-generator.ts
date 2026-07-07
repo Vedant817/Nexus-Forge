@@ -27,8 +27,7 @@ Given a unit description and acceptance criteria, propose precise file edits usi
 Return valid JSON matching the schema with an array of edits.`,
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return runner.runProofOfWork(input as any) as unknown as QualityGeneratorOutput
+  return runner.runQualityGenerator!(input) as unknown as QualityGeneratorOutput
 }
 
 export function getGeneratorPrompt(

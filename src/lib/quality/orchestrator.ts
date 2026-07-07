@@ -141,6 +141,9 @@ async function runOrchestrationLoop(id: string, goal: string): Promise<void> {
               log(status, `Edit had no effect: ${edit.filePath}`)
               continue
             }
+            if (process.env.NODE_ENV === 'production') {
+               throw new Error('File writing is disabled in production environments for security.')
+            }
             fs.writeFileSync(filePath, newContent, 'utf-8')
             editsApplied++
             log(status, `Applied edit to ${edit.filePath}`)
