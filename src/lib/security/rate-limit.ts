@@ -1,4 +1,11 @@
-import prisma from '@/lib/db/prisma'
+// In-memory rate limiter — Edge Runtime compatible (no Node.js / Prisma deps)
+
+interface WindowEntry {
+  count: number
+  resetAt: number
+}
+
+const store = new Map<string, WindowEntry>()
 
 export interface RateLimitConfig {
   windowMs: number
@@ -7,48 +14,31 @@ export interface RateLimitConfig {
 
 const defaultConfig: RateLimitConfig = {
   windowMs: 60_000,
-  maxRequests: 10,
+  maxRequests: 60, // generous limit for normal browsing
 }
 
-export async function checkRateLimit(key: string, config: RateLimitConfig = defaultConfig): Promise<{ allowed: boolean; remaining: number; resetAt: number }> {
+export async function checkRateLimit(
+  key: string,
+  config: RateLimitConfig = defaultConfig,
+): Promise<{ allowed: boolean; remaining: number; resetAt: number }> {
   const now = Date.now()
-  const cutoff = new Date(now - config.windowMs)
+  const entry = store.get(key)
 
-  try {
-    const count = await prisma.auditLog.count({
-      where: {
-        action: 'rate_limit_check',
-        projectId: key,
-        createdAt: { gte: cutoff }
-      }
-    })
-
-    if (count >= config.maxRequests) {
-      return { allowed: false, remaining: 0, resetAt: now + config.windowMs }
-    }
-
-    await prisma.auditLog.create({
-      data: {
-        projectId: key,
-        action: 'rate_limit_check',
-        details: 'Rate limit hit recorded'
-      }
-    })
-
-    return { allowed: true, remaining: config.maxRequests - count - 1, resetAt: now + config.windowMs }
-  } catch (err) {
-    // If DB fails, allow request to prevent blocking the app
-    return { allowed: true, remaining: 1, resetAt: now + config.windowMs }
+  if (!entry || now >= entry.resetAt) {
+    // New window
+    const resetAt = now + config.windowMs
+    store.set(key, { count: 1, resetAt })
+    return { allowed: true, remaining: config.maxRequests - 1, resetAt }
   }
+
+  if (entry.count >= config.maxRequests) {
+    return { allowed: false, remaining: 0, resetAt: entry.resetAt }
+  }
+
+  entry.count += 1
+  return { allowed: true, remaining: config.maxRequests - entry.count, resetAt: entry.resetAt }
 }
 
 export async function resetRateLimit(key: string): Promise<void> {
-  try {
-    await prisma.auditLog.deleteMany({
-      where: {
-        action: 'rate_limit_check',
-        projectId: key
-      }
-    })
-  } catch (err) {}
+  store.delete(key)
 }
