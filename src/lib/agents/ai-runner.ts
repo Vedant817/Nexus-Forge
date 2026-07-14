@@ -88,7 +88,7 @@ export interface AgentRunnerAdapter {
 
 export async function runAgentViaAiSdk<T>(
   systemInstruction: string,
-  input: any,
+  input: unknown,
   schema: z.ZodSchema<T>
 ): Promise<T> {
   const apiKey = config.GROQ_API_KEY
@@ -97,6 +97,8 @@ export async function runAgentViaAiSdk<T>(
   }
   
   const groq = createGroq({ apiKey })
+  // zod-to-json-schema has not published matching Zod v4 generic types yet.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const jsonSchema = zodToJsonSchema(schema as any)
 
   const fullInstruction = systemInstruction + 

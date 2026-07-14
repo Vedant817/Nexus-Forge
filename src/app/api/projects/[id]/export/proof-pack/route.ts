@@ -16,7 +16,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       interviewExplanation: proof.interviewExplanation,
       linkedinPost: proof.linkedinPost,
       proofScore: proof.proofScore,
-      missingProofItems: JSON.parse(proof.missingProofItems),
+      missingProofItems: Array.isArray(proof.missingProofItems) ? proof.missingProofItems : JSON.parse(String(proof.missingProofItems)),
     })
 
     await logAudit('export_generated', 'Proof pack markdown exported', id)

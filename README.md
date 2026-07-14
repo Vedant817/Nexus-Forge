@@ -84,6 +84,7 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 | `GROQ_API_KEY` | Yes | — | Groq API Key for agent inference |
 | `GROQ_MODEL` | No | `llama-3.3-70b-versatile` | Groq model to use for agents |
 | `GITHUB_TOKEN` | No | — | GitHub personal access token (for higher API rate limits) |
+| `GITHUB_WEBHOOK_SECRET` | Yes for webhooks | — | Shared secret used to verify GitHub `X-Hub-Signature-256` payload signatures |
 | `NODE_ENV` | No | `development` | Environment mode |
 | `ANALYSIS_MAX_CONTENT_LENGTH` | No | `100000` | Max content size for sources |
 | `MAX_SOURCES_PER_PROJECT` | No | `20` | Max sources per project |
@@ -115,3 +116,18 @@ npm run typecheck   # Type check
 
 
 
+## Implemented vs Planned
+
+### Implemented
+
+- **Signed GitHub webhooks:** `/api/webhooks/github` requires `X-GitHub-Event`, verifies `X-Hub-Signature-256` with `GITHUB_WEBHOOK_SECRET`, and rejects invalid signatures before parsing payload JSON.
+- **Webhook prompt-injection handling:** PR titles and bodies are run through the prompt-injection guard before any LinkedIn or resume generation prompts are sent to the LLM.
+- **Deeper repository scanning:** GitHub repository analysis recursively inspects repository trees for `src/`, test folders, `.github/workflows/`, config files, and auth/security/middleware evidence instead of only root-level files.
+- **Structured agent storage:** Agent arrays and graph payloads are represented as Prisma `Json` fields so the database stores structured outputs directly.
+- **Operational guardrails:** The webhook returns a service-unavailable response when `GROQ_API_KEY` is missing instead of attempting model calls with an undefined key.
+
+### Planned / Needs Product Decisions
+
+- **Webhook ownership checks:** Signed webhooks prove payload authenticity, but project-to-repository ownership binding still needs a first-class installation or repository mapping model.
+- **Daily improvement engine:** The current pipeline creates workflow tasks and proof packs on demand; scheduled daily maturity-score-driven task generation is planned.
+- **Richer maturity evidence:** The scanner now collects deeper file evidence, but future scoring should weight implementation details such as test assertions, auth flows, deployment configs, and security policy quality.

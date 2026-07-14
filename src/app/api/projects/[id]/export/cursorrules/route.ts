@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import prisma from '@/lib/db/prisma'
+import type { WorkflowTask } from '@/types'
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -24,16 +25,16 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     }
 
     if (workflow?.tasksJson) {
-      const tasks = JSON.parse(workflow.tasksJson)
-      const inProgressTasks = tasks.filter((t: any) => t.status === 'in_progress')
+      const tasks = parseTasks(workflow.tasksJson)
+      const inProgressTasks = tasks.filter(t => t.status === 'in_progress')
       
       cursorrulesContent += `## Current Active Tasks\n`
       if (inProgressTasks.length > 0) {
-        inProgressTasks.forEach((t: any) => {
+        inProgressTasks.forEach(t => {
           cursorrulesContent += `### [IN PROGRESS] ${t.title}\n`
           cursorrulesContent += `**Description**: ${t.description}\n`
-          if (t.agentPrompt) {
-            cursorrulesContent += `**Agent Prompt**: ${t.agentPrompt}\n`
+          if (t.suggestedAgentPrompt) {
+            cursorrulesContent += `**Agent Prompt**: ${t.suggestedAgentPrompt}\n`
           }
           if (t.acceptanceCriteria && t.acceptanceCriteria.length > 0) {
             cursorrulesContent += `**Acceptance Criteria**:\n`
@@ -58,4 +59,10 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     console.error('Failed to export cursorrules:', error)
     return NextResponse.json({ error: 'Failed to export cursorrules' }, { status: 500 })
   }
+}
+
+function parseTasks(value: unknown): WorkflowTask[] {
+  if (Array.isArray(value)) return value as WorkflowTask[]
+  if (typeof value !== 'string') return []
+  try { return JSON.parse(value) as WorkflowTask[] } catch { return [] }
 }
