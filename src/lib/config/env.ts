@@ -2,6 +2,9 @@ const env = {
   get GITHUB_TOKEN(): string | undefined {
     return process.env.GITHUB_TOKEN
   },
+  get GITHUB_WEBHOOK_SECRET(): string | undefined {
+    return process.env.GITHUB_WEBHOOK_SECRET
+  },
   get DATABASE_URL(): string {
     return process.env.DATABASE_URL || 'file:./hermes-forge.db'
   },

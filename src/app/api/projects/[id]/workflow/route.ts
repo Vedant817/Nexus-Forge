@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { Prisma } from '@prisma/client'
 import prisma from '@/lib/db/prisma'
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -18,9 +19,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     const body = await request.json()
     const { tasksJson, completedAcceptanceCriteria } = body
     
-    const dataToUpdate: any = {}
-    if (tasksJson !== undefined) dataToUpdate.tasksJson = tasksJson
-    if (completedAcceptanceCriteria !== undefined) dataToUpdate.completedAcceptanceCriteria = completedAcceptanceCriteria
+    const dataToUpdate: Prisma.WorkflowUpdateInput = {}
+    if (tasksJson !== undefined) dataToUpdate.tasksJson = parseJsonField(tasksJson) as Prisma.InputJsonValue
+    if (completedAcceptanceCriteria !== undefined) dataToUpdate.completedAcceptanceCriteria = parseJsonField(completedAcceptanceCriteria) as Prisma.InputJsonValue
 
     if (Object.keys(dataToUpdate).length === 0) {
       return NextResponse.json({ error: 'No valid fields provided' }, { status: 400 })
@@ -31,7 +32,12 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       data: dataToUpdate
     })
     return NextResponse.json(updated)
-  } catch (err) {
+  } catch {
     return NextResponse.json({ error: 'Failed to update workflow' }, { status: 500 })
   }
+}
+
+function parseJsonField(value: unknown): unknown {
+  if (typeof value !== 'string') return value
+  try { return JSON.parse(value) } catch { return value }
 }

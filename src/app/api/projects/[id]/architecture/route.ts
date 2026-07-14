@@ -15,12 +15,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     }
 
     // Return cached graph if it exists
-    if (analysis.graphJson && analysis.graphJson !== 'null' && analysis.graphJson !== '{}') {
-      try {
-        return NextResponse.json(JSON.parse(analysis.graphJson))
-      } catch (e) {
-        // If JSON fails to parse, fall through to regenerate
-      }
+    if (analysis.graphJson && JSON.stringify(analysis.graphJson) !== '{}') {
+      return NextResponse.json(analysis.graphJson)
     }
 
     // Generate new graph
@@ -33,7 +29,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     // Save generated graph to DB
     await prisma.repoAnalysis.update({
       where: { id: analysis.id },
-      data: { graphJson: JSON.stringify(graph) }
+      data: { graphJson: graph }
     })
 
     return NextResponse.json(graph)

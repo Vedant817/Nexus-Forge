@@ -143,6 +143,8 @@ export default function KnowledgePage() {
   )
 }
 
-function safeParse(json: string): unknown[] {
-  try { return JSON.parse(json) as unknown[] } catch { return [] }
+function safeParse(value: unknown): unknown[] {
+  if (Array.isArray(value)) return value
+  if (typeof value !== 'string') return []
+  try { return JSON.parse(value) as unknown[] } catch { return [] }
 }

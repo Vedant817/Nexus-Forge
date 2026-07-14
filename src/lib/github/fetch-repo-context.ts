@@ -13,6 +13,7 @@ interface GithubContentItem {
   name: string
   type: string
   path: string
+  size?: number
 }
 
 interface GithubFileItem {
@@ -39,7 +40,6 @@ interface GithubPRResponse {
 }
 
 const GITHUB_API = 'https://api.github.com'
-const GITHUB_RAW = 'https://raw.githubusercontent.com'
 
 async function githubFetch(path: string, options?: { timeout?: number }): Promise<Response> {
   const headers: Record<string, string> = {
@@ -70,6 +70,43 @@ async function githubFetch(path: string, options?: { timeout?: number }): Promis
   }
 }
 
+
+async function fetchRepoTree(owner: string, repo: string, branch: string): Promise<string[]> {
+  try {
+    const treeRes = await githubFetch(`/repos/${owner}/${repo}/git/trees/${encodeURIComponent(branch)}?recursive=1`)
+    const data = await treeRes.json() as { tree?: { path: string; type: string }[] }
+    return (data.tree || [])
+      .filter(item => item.type === 'blob')
+      .map(item => item.path)
+      .filter(path => shouldIncludePath(path))
+      .slice(0, 500)
+  } catch {
+    const contentsRes = await githubFetch(`/repos/${owner}/${repo}/contents/`)
+    const contents = await contentsRes.json() as GithubContentItem[]
+    return contents.map(item => item.path || item.name)
+  }
+}
+
+function shouldIncludePath(path: string): boolean {
+  return /^(src|app|pages|lib|components|test|tests|__tests__|spec|\.github\/workflows)\//.test(path)
+    || isConfigFile(path)
+    || /(auth|security|middleware|proxy)/i.test(path)
+}
+
+function isConfigFile(path: string): boolean {
+  return /(^|\/)(package\.json|requirements\.txt|pyproject\.toml|Dockerfile|docker-compose\.ya?ml|\.env\.example|tsconfig\.json|next\.config\.[cm]?[jt]s|vite\.config\.[cm]?[jt]s|vitest\.config\.[cm]?[jt]s|eslint\.config\.[cm]?[jt]s|\.eslintrc|\.prettierrc|playwright\.config\.[cm]?[jt]s)$/i.test(path)
+}
+
+function selectImportantFiles(tree: string[]): string[] {
+  const exact = ['package.json', 'requirements.txt', 'pyproject.toml', 'Dockerfile', 'docker-compose.yml', 'docker-compose.yaml', '.env.example']
+  const rootFiles = exact.filter(file => tree.includes(file))
+  const deeperEvidence = tree
+    .filter(path => shouldIncludePath(path))
+    .filter(path => /\.(json|ya?ml|toml|txt|md|[cm]?[jt]sx?|py|go|rs)$/i.test(path))
+    .slice(0, 40)
+  return [...new Set([...rootFiles, ...deeperEvidence])]
+}
+
 export interface RepoContext {
   name: string
   description: string
@@ -78,6 +115,10 @@ export interface RepoContext {
   language: string | null
   readme: string
   tree: string[]
+  inspectedFiles: string[]
+  configFiles: string[]
+  testFiles: string[]
+  securityFiles: string[]
   packageJson?: string
   requirementsTxt?: string
   pyprojectToml?: string
@@ -96,10 +137,10 @@ export async function fetchRepoContext(url: string): Promise<RepoContext> {
   const repoRes = await githubFetch(`/repos/${owner}/${repo}`)
   const repoData = await repoRes.json() as GithubRepoResponse
 
-  const contentsRes = await githubFetch(`/repos/${owner}/${repo}/contents/`)
-  const contents = await contentsRes.json() as GithubContentItem[]
-
-  const tree: string[] = contents.map((item: GithubContentItem) => item.name)
+  const tree = await fetchRepoTree(owner, repo, repoData.default_branch)
+  const configFiles = tree.filter(path => isConfigFile(path))
+  const testFiles = tree.filter(path => /(^|\/)(__tests__|tests?|spec)(\/|$)|\.(test|spec)\.[cm]?[jt]sx?$/i.test(path))
+  const securityFiles = tree.filter(path => /(auth|security|middleware|proxy|csrf|cors|permission|policy|secret)/i.test(path))
 
   let readme = ''
   try {
@@ -119,16 +160,22 @@ export async function fetchRepoContext(url: string): Promise<RepoContext> {
     return undefined
   }
 
-  const importantFiles = ['package.json', 'requirements.txt', 'pyproject.toml', 'Dockerfile', 'docker-compose.yml', '.env.example']
-  const [packageJson, requirementsTxt, pyprojectToml, dockerfile, dockerCompose, envExample] =
-    await Promise.all(importantFiles.map(f => fetchFile(f)))
+  const importantFiles = selectImportantFiles(tree)
+  const importantFileContents = await Promise.all(importantFiles.map(f => fetchFile(f)))
+  const importantContent = Object.fromEntries(importantFiles.map((file, index) => [file, importantFileContents[index]]))
+  const packageJson = importantContent['package.json']
+  const requirementsTxt = importantContent['requirements.txt']
+  const pyprojectToml = importantContent['pyproject.toml']
+  const dockerfile = importantContent['Dockerfile']
+  const dockerCompose = importantContent['docker-compose.yml'] || importantContent['docker-compose.yaml']
+  const envExample = importantContent['.env.example']
 
   let githubWorkflows: string[] = []
   try {
     const workflowsRes = await githubFetch(`/repos/${owner}/${repo}/contents/.github/workflows`)
     const workflows = await workflowsRes.json() as GithubWorkflowItem[]
     if (Array.isArray(workflows)) {
-      githubWorkflows = workflows.map((w: GithubWorkflowItem) => w.name)
+      githubWorkflows = workflows.map((w: GithubWorkflowItem) => w.path || w.name)
     }
   } catch { }
 
@@ -140,6 +187,10 @@ export async function fetchRepoContext(url: string): Promise<RepoContext> {
     language: repoData.language,
     readme,
     tree,
+    inspectedFiles: importantFiles,
+    configFiles,
+    testFiles,
+    securityFiles,
     packageJson,
     requirementsTxt,
     pyprojectToml,
