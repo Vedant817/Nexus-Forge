@@ -5,6 +5,7 @@ import type { QualityPlannerOutput, QualityGeneratorOutput, QualityEvaluatorOutp
 
 export interface OrchestrationStatus {
   id: string
+  userId: string
   goal: string
   startedAt: string
   finishedAt?: string
@@ -34,18 +35,20 @@ function log(status: OrchestrationStatus, message: string) {
   status.log.push(`[${timestamp}] ${message}`)
 }
 
-export function getOrchestration(id: string): OrchestrationStatus | undefined {
-  return runningOrchestrations.get(id)
+export function getOrchestration(id: string, userId: string): OrchestrationStatus | undefined {
+  const orchestration = runningOrchestrations.get(id)
+  return orchestration?.userId === userId ? orchestration : undefined
 }
 
-export function listOrchestrations(): OrchestrationStatus[] {
-  return Array.from(runningOrchestrations.values())
+export function listOrchestrations(userId: string): OrchestrationStatus[] {
+  return Array.from(runningOrchestrations.values()).filter((item) => item.userId === userId)
 }
 
-export async function startOrchestration(goal: string): Promise<string> {
+export async function startOrchestration(goal: string, userId: string): Promise<string> {
   const id = `orch-${++orchestrationCounter}-${Date.now()}`
   const status: OrchestrationStatus = {
     id,
+    userId,
     goal,
     startedAt: new Date().toISOString(),
     phase: 'planning',
@@ -80,7 +83,7 @@ async function runOrchestrationLoop(id: string, goal: string): Promise<void> {
 
     let spec: QualityPlannerOutput
     try {
-      spec = await qualityPlanner(goal)
+      spec = await qualityPlanner(goal, status.userId)
       status.spec = spec
       status.totalUnits = spec.units.length
       log(status, `Planner produced ${spec.units.length} units of work`)
@@ -112,6 +115,7 @@ async function runOrchestrationLoop(id: string, goal: string): Promise<void> {
             unit.description,
             unit.acceptance,
             `Project: Nexus Forge (Next.js 16, TypeScript, Prisma, Tailwind, Lemma SDK)\nWorking directory: ${process.cwd()}`,
+            status.userId,
           )
           status.currentGeneratorOutput = genOutput
           log(status, `Generator proposed ${genOutput.edits.length} edits for ${unit.title}`)
@@ -125,64 +129,16 @@ async function runOrchestrationLoop(id: string, goal: string): Promise<void> {
         status.totalEdits += edits.length
         log(status, `Applying ${edits.length} edits for ${unit.title}`)
 
-        let editsApplied = 0
-        for (const edit of edits) {
-          try {
-            const fs = await import('fs')
-            const filePath = edit.filePath.startsWith('/') ? edit.filePath : `${process.cwd()}/${edit.filePath}`
-            const content = fs.readFileSync(filePath, 'utf-8')
-            if (!content.includes(edit.oldString)) {
-              log(status, `Edit failed (oldString not found): ${edit.filePath}`)
-              status.errors.push(`Edit failed for ${edit.filePath}: oldString not found in ${edit.filePath}`)
-              continue
-            }
-            const newContent = content.replace(edit.oldString, edit.newString)
-            if (newContent === content) {
-              log(status, `Edit had no effect: ${edit.filePath}`)
-              continue
-            }
-            if (process.env.NODE_ENV === 'production') {
-               throw new Error('File writing is disabled in production environments for security.')
-            }
-            fs.writeFileSync(filePath, newContent, 'utf-8')
-            editsApplied++
-            log(status, `Applied edit to ${edit.filePath}`)
-          } catch (err) {
-            status.errors.push(`File write error for ${edit.filePath}: ${err}`)
-            log(status, `File write error: ${err}`)
-          }
-        }
-        status.appliedEdits += editsApplied
-        log(status, `Applied ${editsApplied}/${edits.length} edits for ${unit.title}`)
+        // Web orchestration is patch-proposal-only. Applying and evaluating edits is
+        // permitted only through the disposable worktree + container sandbox CLI.
+        status.appliedEdits += 0
+        log(status, `Recorded ${edits.length} proposed edit(s); no live-checkout files were modified.`)
 
         status.phase = 'evaluating'
-        log(status, `Evaluating after unit ${unit.title}`)
-
-        let evalOutput: QualityEvaluatorOutput
-        try {
-          evalOutput = await qualityEvaluator()
-          status.lastEvaluation = evalOutput
-          log(status, `Evaluation: score=${evalOutput.score}%, passed=${evalOutput.passed}, critical=${evalOutput.criticalFailure}`)
-        } catch (err) {
-          status.errors.push(`Evaluator error: ${err}`)
-          log(status, `Evaluator error: ${err}`)
-          evalOutput = {
-            score: 0,
-            passed: false,
-            criticalFailure: true,
-            criterionResults: [],
-            summary: `Evaluator crashed: ${err}`,
-            reworkFeedback: `Evaluator crashed: ${err}`,
-          }
-        }
-
-        if (evalOutput.passed) {
-          generatorSuccess = true
-          log(status, `Unit ${unit.title} passed evaluation`)
-        } else if (evalOutput.criticalFailure) {
-          log(status, `Critical failure detected, will re-plan on next iteration`)
-          generatorSuccess = true
-        }
+        const evalOutput = await qualityEvaluator()
+        status.lastEvaluation = evalOutput
+        log(status, `Quality execution unavailable for ${unit.title}; observations remain UNKNOWN and require review.`)
+        generatorSuccess = true
       }
 
       if (!generatorSuccess) {
@@ -191,44 +147,10 @@ async function runOrchestrationLoop(id: string, goal: string): Promise<void> {
     }
 
     status.phase = 'evaluating'
-    log(status, 'Running final evaluation for this iteration')
-
-    let finalEval: QualityEvaluatorOutput
-    try {
-      finalEval = await qualityEvaluator()
-      status.lastEvaluation = finalEval
-      log(status, `Final evaluation: score=${finalEval.score}%, passed=${finalEval.passed}, critical=${finalEval.criticalFailure}`)
-    } catch (err) {
-      status.errors.push(`Final evaluator error: ${err}`)
-      log(status, `Final evaluator error: ${err}`)
-      finalEval = {
-        score: 0,
-        passed: false,
-        criticalFailure: true,
-        criterionResults: [],
-        summary: `Final evaluator crashed: ${err}`,
-        reworkFeedback: `Final evaluator crashed: ${err}`,
-      }
-    }
-
-    if (finalEval.passed) {
-      status.phase = 'done'
-      status.finishedAt = new Date().toISOString()
-      log(status, `All criteria passed after ${iter + 1} iteration(s)!`)
-      return
-    }
-
-    if (finalEval.criticalFailure && iter >= MAX_ITERATIONS - 1) {
-      status.phase = 'failed'
-      status.finishedAt = new Date().toISOString()
-      log(status, `Max iterations reached with critical failures. Loop terminated.`)
-      return
-    }
-
-    log(status, `Iteration ${iter + 1} incomplete (score ${finalEval.score}%). Re-planning...`)
+    status.lastEvaluation = await qualityEvaluator()
+    status.phase = 'done'
+    status.finishedAt = new Date().toISOString()
+    log(status, 'Draft generation complete. No quality decision was made; sandboxed checks and human review are required.')
+    return
   }
-
-  status.phase = 'failed'
-  status.finishedAt = new Date().toISOString()
-  log(status, `Max iterations (${MAX_ITERATIONS}) reached without passing all criteria.`)
 }

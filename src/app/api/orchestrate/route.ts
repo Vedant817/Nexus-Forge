@@ -1,16 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { startOrchestration, getOrchestration, listOrchestrations } from '@/lib/quality/orchestrator'
 import { checkRateLimit } from '@/lib/security/rate-limit'
+import { requireSession } from '@/lib/auth/authorization'
+import { canUseQualityOrchestrator } from '@/lib/quality/access-policy'
 
 export async function POST(req: NextRequest) {
+  const session = await requireSession(req.headers)
+  if (!session.ok) return session.response
+
   try {
-    if (process.env.NODE_ENV === 'production') {
-      return NextResponse.json({ error: 'Orchestration is disabled in production' }, { status: 403 })
+    if (!canUseQualityOrchestrator(session.value)) {
+      return NextResponse.json({ error: 'Orchestration is unavailable' }, { status: 403 })
     }
 
-    // Apply simple rate limiting just in case
-    const ip = req.headers.get('x-forwarded-for') || 'localhost'
-    const rateCheck = await checkRateLimit(`orchestrate:${ip}`, { windowMs: 60000, maxRequests: 5 })
+    const rateCheck = await checkRateLimit(`orchestrate:user:${session.value.id}`, { windowMs: 60000, maxRequests: 5 })
     if (!rateCheck.allowed) {
       return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429 })
     }
@@ -20,8 +23,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'goal is required (string, max 2000 chars)' }, { status: 400 })
     }
 
-    const id = await startOrchestration(goal)
-    const status = getOrchestration(id)
+    const id = await startOrchestration(goal, session.value.id)
+    const status = getOrchestration(id, session.value.id)
 
     return NextResponse.json({ id, status })
   } catch (err) {
@@ -32,10 +35,13 @@ export async function POST(req: NextRequest) {
   }
 }
 
-export async function GET() {
-  if (process.env.NODE_ENV === 'production') {
-    return NextResponse.json({ error: 'Orchestration is disabled in production' }, { status: 403 })
+export async function GET(request: NextRequest) {
+  const session = await requireSession(request.headers)
+  if (!session.ok) return session.response
+
+  if (!canUseQualityOrchestrator(session.value)) {
+    return NextResponse.json({ error: 'Orchestration is unavailable' }, { status: 403 })
   }
-  const orchestrations = listOrchestrations()
+  const orchestrations = listOrchestrations(session.value.id)
   return NextResponse.json({ orchestrations })
 }
