@@ -1,74 +1,144 @@
+import { createHash } from 'node:crypto'
 import { NextResponse } from 'next/server'
 import prisma from '@/lib/db/prisma'
-import { generateText } from 'ai'
-import { createGroq } from '@ai-sdk/groq'
+import config from '@/lib/config/env'
+import { redactStructuredValue } from '@/lib/security/secret-redaction'
+import { invalidateInstallationTokens } from '@/lib/github/app-auth'
+import {
+  githubInstallationRepositoriesWebhookSchema,
+  githubInstallationWebhookSchema,
+  githubPullRequestWebhookSchema,
+  readBoundedWebhookBody,
+  verifyGitHubWebhookSignature,
+  WebhookBodyTooLargeError,
+} from '@/lib/github/webhook-security'
 
-export async function POST(req: Request) {
+const DEFAULT_MAX_BODY_BYTES = 1_000_000
+const DELIVERY_ID_PATTERN = /^[A-Za-z0-9-]{1,100}$/
+
+function isUniqueConstraintError(error: unknown): boolean {
+  return Boolean(error && typeof error === 'object' && 'code' in error && error.code === 'P2002')
+}
+
+export async function POST(request: Request) {
+  const secret = process.env.GITHUB_WEBHOOK_SECRET
+  if (!secret) {
+    return NextResponse.json({ error: 'Webhook receiver is not configured' }, { status: 503 })
+  }
+
+  const signature = request.headers.get('x-hub-signature-256')
+  const event = request.headers.get('x-github-event')
+  const deliveryId = request.headers.get('x-github-delivery')
+  if (!signature || !deliveryId || !DELIVERY_ID_PATTERN.test(deliveryId)) {
+    return NextResponse.json({ error: 'Missing or invalid GitHub webhook headers' }, { status: 401 })
+  }
+  if (!['pull_request', 'installation', 'installation_repositories'].includes(event ?? '')) {
+    return NextResponse.json({ error: 'Unsupported GitHub event' }, { status: 400 })
+  }
+
+  const maxBodyBytes = Number(process.env.WEBHOOK_MAX_BODY_BYTES ?? DEFAULT_MAX_BODY_BYTES)
+  let rawBody: Buffer
   try {
-    const url = new URL(req.url)
-    const projectId = url.searchParams.get('projectId')
-    if (!projectId) return NextResponse.json({ error: 'Missing projectId' }, { status: 400 })
+    rawBody = await readBoundedWebhookBody(request, maxBodyBytes)
+  } catch (error) {
+    if (error instanceof WebhookBodyTooLargeError) {
+      return NextResponse.json({ error: error.message }, { status: 413 })
+    }
+    return NextResponse.json({ error: 'Webhook receiver configuration is invalid' }, { status: 503 })
+  }
 
-    const payload = await req.json()
+  if (!verifyGitHubWebhookSignature(rawBody, signature, secret)) {
+    return NextResponse.json({ error: 'Invalid webhook signature' }, { status: 401 })
+  }
 
-    // Only process PR closed & merged events
-    if (payload.action === 'closed' && payload.pull_request?.merged) {
-      const pr = payload.pull_request
-      const prTitle = pr.title
-      const prBody = pr.body || ''
-      const repoName = payload.repository?.full_name || 'the repository'
+  let json: unknown
+  try {
+    json = JSON.parse(rawBody.toString('utf8'))
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON payload' }, { status: 400 })
+  }
 
-      const project = await prisma.project.findUnique({ where: { id: projectId } })
-      if (!project) return NextResponse.json({ error: 'Project not found' }, { status: 404 })
-
-      const groq = createGroq({ apiKey: process.env.GROQ_API_KEY })
-      
-      const linkedinPrompt = `
-        A developer just merged a Pull Request in their repository (${repoName}).
-        PR Title: ${prTitle}
-        PR Body: ${prBody}
-        Project Goal: ${project.goal}
-
-        Generate a viral, engaging LinkedIn post celebrating this shipped feature. Keep it professional but exciting. Focus on the value delivered. Do not use hashtags or emojis excessively.
-      `
-
-      const { text: linkedinPost } = await generateText({
-        model: groq('llama-3.3-70b-versatile'),
-        prompt: linkedinPrompt
-      })
-
-      const resumePrompt = `
-        Based on this merged PR (${prTitle}: ${prBody}) for the project (${project.goal}), 
-        write a single, powerful resume bullet point starting with a strong action verb (e.g., Architected, Engineered, Implemented). Focus on metrics or value if implied.
-      `
-      
-      const { text: resumeBullet } = await generateText({
-        model: groq('llama-3.3-70b-versatile'),
-        prompt: resumePrompt
-      })
-
-      // Update the proof pack in the database
-      await prisma.proofPack.upsert({
-        where: { projectId },
-        update: {
-          linkedinPost: linkedinPost.trim(),
-          resumeBullet: resumeBullet.replace(/^[-*•]\s*/, '').trim(),
-          proofScore: 100 // Boost score for successfully shipping code!
-        },
-        create: {
-          projectId,
-          linkedinPost: linkedinPost.trim(),
-          resumeBullet: resumeBullet.replace(/^[-*•]\s*/, '').trim(),
-          proofScore: 100
+  const payloadSha256 = createHash('sha256').update(rawBody).digest('hex')
+  if (event === 'installation' || event === 'installation_repositories') {
+    const lifecycle = event === 'installation'
+      ? githubInstallationWebhookSchema.safeParse(json)
+      : githubInstallationRepositoriesWebhookSchema.safeParse(json)
+    if (!lifecycle.success) return NextResponse.json({ error: 'Invalid GitHub lifecycle payload' }, { status: 400 })
+    const installationId = String(lifecycle.data.installation.id)
+    try {
+      await prisma.$transaction(async (tx) => {
+        const safeLifecyclePayload = JSON.parse(JSON.stringify(redactStructuredValue(lifecycle.data)))
+        await tx.gitHubLifecycleDelivery.create({
+          data: { deliveryId, event, action: lifecycle.data.action, installationId, payloadSha256, payload: safeLifecyclePayload },
+        })
+        if (event === 'installation' && ['deleted', 'suspend'].includes(lifecycle.data.action)) {
+          await tx.project.updateMany({ where: { githubInstallationId: installationId }, data: { githubBindingStatus: lifecycle.data.action, githubBindingDisabledAt: new Date() } })
+        } else if (event === 'installation' && lifecycle.data.action === 'unsuspend') {
+          await tx.project.updateMany({ where: { githubInstallationId: installationId }, data: { githubBindingStatus: 'active', githubBindingDisabledAt: null } })
+        } else if (event === 'installation_repositories' && lifecycle.data.action === 'removed') {
+          const removedIds = lifecycle.data.repositories_removed.map((repository) => String(repository.id))
+          if (removedIds.length) await tx.project.updateMany({ where: { githubInstallationId: installationId, githubRepositoryId: { in: removedIds } }, data: { githubBindingStatus: 'removed', githubBindingDisabledAt: new Date() } })
         }
       })
-
-      return NextResponse.json({ success: true, message: 'Proof Pack updated via Webhook' })
+      if (event === 'installation' && ['deleted', 'suspend'].includes(lifecycle.data.action)) invalidateInstallationTokens(installationId)
+      return NextResponse.json({ accepted: true }, { status: 202 })
+    } catch (error) {
+      if (isUniqueConstraintError(error)) return NextResponse.json({ accepted: true, replay: true }, { status: 202 })
+      throw error
     }
-
-    return NextResponse.json({ success: true, message: 'Ignored non-merge event' })
-  } catch (error) {
-    console.error('Webhook error:', error)
-    return NextResponse.json({ error: 'Webhook processing failed' }, { status: 500 })
   }
+
+  const parsed = githubPullRequestWebhookSchema.safeParse(json)
+  if (!parsed.success) return NextResponse.json({ error: 'Invalid pull request payload' }, { status: 400 })
+  const payload = parsed.data
+  const installationId = String(payload.installation.id)
+  const repositoryId = String(payload.repository.id)
+  const project = await prisma.project.findFirst({
+    where: { githubInstallationId: installationId, githubRepositoryId: repositoryId },
+    select: { id: true, ownerId: true },
+  })
+  if (!project?.ownerId) {
+    return NextResponse.json({ error: 'Repository installation is not registered' }, { status: 404 })
+  }
+
+  const ownerId = project.ownerId
+  const shouldProcess = payload.action === 'closed' && payload.pull_request.merged
+  const eventKey = `${repositoryId}:${payload.pull_request.id}:${payload.action}:${payload.pull_request.merged}`
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      const delivery = await tx.webhookDelivery.create({
+        data: {
+          deliveryId,
+          eventKey,
+          payloadSha256,
+          payload: redactStructuredValue(payload),
+          projectId: project.id,
+          event: 'pull_request',
+          action: payload.action,
+          status: shouldProcess ? 'received' : 'ignored',
+          processedAt: shouldProcess ? null : new Date(),
+        },
+      })
+      if (shouldProcess) {
+        await tx.job.create({
+          data: {
+            kind: 'WEBHOOK',
+            projectId: project.id,
+            ownerId,
+            webhookDeliveryId: delivery.id,
+            payload: { provider: 'groq', model: config.GROQ_MODEL },
+          },
+        })
+      }
+    })
+  } catch (error) {
+    if (isUniqueConstraintError(error)) {
+      return NextResponse.json({ accepted: true, replay: true }, { status: 202 })
+    }
+    throw error
+  }
+
+  // The durable execution worker consumes received deliveries.
+  return NextResponse.json({ accepted: true, queued: shouldProcess }, { status: 202 })
 }
