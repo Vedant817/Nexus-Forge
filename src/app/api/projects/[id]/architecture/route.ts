@@ -1,44 +1,22 @@
 import { NextResponse } from 'next/server'
 import prisma from '@/lib/db/prisma'
-import { generateArchitectureGraph } from '@/lib/agents/architecture-mapper'
+import { requireProjectAccess } from '@/lib/auth/authorization'
+import { dependencyMapSchema } from '@/lib/repository/dependency-map'
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  
-  try {
-    const analysis = await prisma.repoAnalysis.findUnique({
-      where: { projectId: id }
-    })
-
-    if (!analysis) {
-      return NextResponse.json({ error: 'Analysis not found' }, { status: 404 })
-    }
-
-    // Return cached graph if it exists
-    if (analysis.graphJson && analysis.graphJson !== 'null' && analysis.graphJson !== '{}') {
-      try {
-        return NextResponse.json(JSON.parse(analysis.graphJson))
-      } catch (e) {
-        // If JSON fails to parse, fall through to regenerate
-      }
-    }
-
-    // Generate new graph
-    if (!analysis.architectureSummary) {
-      return NextResponse.json({ error: 'No architecture summary available to graph' }, { status: 400 })
-    }
-
-    const graph = await generateArchitectureGraph(analysis.architectureSummary)
-    
-    // Save generated graph to DB
-    await prisma.repoAnalysis.update({
-      where: { id: analysis.id },
-      data: { graphJson: JSON.stringify(graph) }
-    })
-
-    return NextResponse.json(graph)
-  } catch (error) {
-    console.error('Failed to generate architecture graph:', error)
-    return NextResponse.json({ error: 'Failed to generate architecture graph' }, { status: 500 })
-  }
+  const access = await requireProjectAccess(request.headers, id)
+  if (!access.ok) return access.response
+  const project = await prisma.project.findUnique({
+    where: { id, ownerId: access.value.user.id }, select: { activeAnalysisRunId: true },
+  })
+  if (!project?.activeAnalysisRunId) return NextResponse.json({ error: 'No active successful analysis run' }, { status: 404 })
+  const artifact = await prisma.artifactVersion.findUnique({
+    where: { analysisRunId_kind_schemaVersion: { analysisRunId: project.activeAnalysisRunId, kind: 'DEPENDENCY_MAP', schemaVersion: 1 } },
+    select: { content: true, contentHash: true, createdAt: true },
+  })
+  if (!artifact) return NextResponse.json({ error: 'No dependency map available for the active run' }, { status: 404 })
+  const parsed = dependencyMapSchema.safeParse(artifact.content)
+  if (!parsed.success) return NextResponse.json({ error: 'Stored dependency map is invalid' }, { status: 500 })
+  return NextResponse.json({ ...parsed.data, contentHash: artifact.contentHash, createdAt: artifact.createdAt })
 }
