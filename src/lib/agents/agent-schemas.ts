@@ -24,9 +24,8 @@ export const repoContextAgentOutputSchema = z.object({
   setupQuality: z.string(),
   missingItems: z.array(z.string()),
   risks: z.array(z.string()),
-  maturityScore: z.number().int().min(0).max(100),
   recommendedFixes: z.array(z.string()),
-})
+}).strict()
 
 export const workflowTaskSchema = z.object({
   id: z.string(),
@@ -52,8 +51,6 @@ export const workflowPlannerOutputSchema = z.object({
 })
 
 export const releaseReadinessOutputSchema = z.object({
-  releaseScore: z.number().int().min(0).max(100),
-  decision: z.enum(['go', 'go_with_fixes', 'no_go']),
   topRisks: z.array(z.string()),
   missingTests: z.array(z.string()),
   missingDocs: z.array(z.string()),
@@ -62,7 +59,7 @@ export const releaseReadinessOutputSchema = z.object({
   releaseChecklist: z.array(z.string()),
   releaseNotesDraft: z.string(),
   recommendedFixesBeforeMerge: z.array(z.string()),
-})
+}).strict()
 
 export const proofOfWorkOutputSchema = z.object({
   portfolioSummary: z.string(),
@@ -70,6 +67,5 @@ export const proofOfWorkOutputSchema = z.object({
   demoVideoScript: z.string(),
   interviewExplanation: z.string(),
   linkedinPost: z.string(),
-  proofScore: z.number().int().min(0).max(100),
   missingProofItems: z.array(z.string()),
-})
+}).strict()

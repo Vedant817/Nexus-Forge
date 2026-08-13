@@ -1,6 +1,5 @@
 import type { ReleaseReadinessInput, ReleaseReadinessOutput } from '@/types'
 import { redactSecrets } from '@/lib/security/secret-redaction'
-import { computeReleaseScore } from '@/lib/scoring/scoring'
 
 export async function releaseReadinessAgent(input: ReleaseReadinessInput): Promise<ReleaseReadinessOutput> {
   const risks: string[] = []
@@ -109,25 +108,7 @@ export async function releaseReadinessAgent(input: ReleaseReadinessInput): Promi
 
   checklist.push('Code reviewed', 'Tests passing', 'No hardcoded secrets', 'Documentation updated', 'CHANGELOG updated')
 
-  const hasTestEvidence = missingTests.length === 0
-  const docsUpdated = missingDocs.length === 0
-  const configSafe = configIssues.length === 0
-  const backwardCompatible = backwardCompatConcerns.length === 0
-
-  const scoreResult = computeReleaseScore({
-    hasTestEvidence,
-    riskCount: risks.length,
-    docsUpdated,
-    configSafe,
-    backwardCompatible,
-  })
-
-  const score = scoreResult.score
-  const decision: ReleaseReadinessOutput['decision'] = score >= 80 ? 'go' : score >= 50 ? 'go_with_fixes' : 'no_go'
-
   return {
-    releaseScore: score,
-    decision,
     topRisks: risks,
     missingTests,
     missingDocs,

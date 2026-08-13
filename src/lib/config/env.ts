@@ -1,9 +1,6 @@
 const env = {
-  get GITHUB_TOKEN(): string | undefined {
-    return process.env.GITHUB_TOKEN
-  },
   get DATABASE_URL(): string {
-    return process.env.DATABASE_URL || 'file:./hermes-forge.db'
+    return process.env.DATABASE_URL || ''
   },
   get NODE_ENV(): string {
     return process.env.NODE_ENV || 'development'
@@ -20,6 +17,14 @@ const env = {
   },
   get GROQ_MODEL(): string {
     return process.env.GROQ_MODEL || 'llama-3.3-70b-versatile'
+  },
+  get GROQ_ALLOWED_MODELS(): readonly string[] {
+    const configured = process.env.GROQ_ALLOWED_MODELS
+    const models = (configured ?? env.GROQ_MODEL)
+      .split(',')
+      .map((model) => model.trim())
+      .filter(Boolean)
+    return [...new Set(models)]
   },
 
   validate(): string[] {

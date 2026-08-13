@@ -1,34 +1,15 @@
 import type { RepoContextAgentInput, RepoContextAgentOutput } from '@/types'
-import { computeRepoMaturityScore } from '@/lib/scoring/scoring'
 
 export async function repoContextAgent(input: RepoContextAgentInput): Promise<RepoContextAgentOutput> {
   const detectedStack = detectStack(input)
-  const hasReadme = !!input.readme && input.readme.length > 50
-  const hasTests = findTestLocations(input).length > 0
-  const hasEnvExample = !!input.envExample
-  const hasDocker = !!input.dockerfile
-  const hasCI = !!(input.githubWorkflows && input.githubWorkflows.length > 0)
-  const hasPackageConfig = !!(input.packageJson || input.requirementsTxt || input.pyprojectToml)
-
   const missingItemsSet = findMissingItems(input)
   const foundRisks = findRisks(input, detectedStack)
 
-  const scoreResult = computeRepoMaturityScore({
-    hasReadme,
-    readmeLength: input.readme?.length || 0,
-    hasTests,
-    hasEnvExample,
-    hasDocker,
-    hasCI,
-    hasPackageConfig,
-    missingCount: missingItemsSet.length,
-  })
-
   const importantFiles = findImportantFiles(input)
   const testLocations = findTestLocations(input)
-  const recommendedFixes = [...scoreResult.recommendedFixes]
+  const recommendedFixes = missingItemsSet.map((item) => `Add or document ${item}`)
 
-  const allRisks = [...scoreResult.reasons.map(r => ({ reason: r })), ...foundRisks.map(r => ({ reason: r }))]
+  const allRisks = foundRisks.map(r => ({ reason: r }))
     .filter((v, i, a) => a.findIndex(x => x.reason === v.reason) === i)
     .map(x => x.reason)
 
@@ -41,7 +22,6 @@ export async function repoContextAgent(input: RepoContextAgentInput): Promise<Re
     setupQuality: input.packageJson ? 'Has package.json with project setup' : input.requirementsTxt ? 'Has requirements.txt' : 'No setup file detected',
     missingItems: missingItemsSet,
     risks: allRisks,
-    maturityScore: scoreResult.score,
     recommendedFixes,
   }
 }
