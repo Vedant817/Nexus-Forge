@@ -6,22 +6,235 @@ datasource db {
   provider = "postgresql"
 }
 
-model Project {
-  id          String   @id @default(cuid())
-  name        String
-  goal        String   @default("")
-  repoUrl     String   @default("")
-  prUrl       String   @default("")
-  status      String   @default("idle")
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+enum AnalysisRunStatus {
+  QUEUED
+  RUNNING
+  CANCEL_REQUESTED
+  CANCELLED
+  SUCCEEDED
+  FAILED
+}
 
-  sources       Source[]
-  knowledge     KnowledgeSummary?
-  repoAnalysis  RepoAnalysis?
-  workflow      Workflow?
-  releaseReport ReleaseReport?
-  proofPack     ProofPack?
+enum AnalysisStageName {
+  KNOWLEDGE
+  REPOSITORY
+  WORKFLOW
+  RELEASE
+  PROOF
+}
+
+enum AnalysisStageStatus {
+  PENDING
+  RUNNING
+  SUCCEEDED
+  FAILED
+  SKIPPED
+  CANCELLED
+}
+
+enum JobKind {
+  ANALYSIS
+  WEBHOOK
+}
+
+enum AiReservationStatus {
+  RESERVED
+  RECONCILED
+  RELEASED
+}
+
+enum JobStatus {
+  QUEUED
+  RUNNING
+  RETRY_WAIT
+  SUCCEEDED
+  DEAD
+  CANCELLED
+}
+
+enum ScorecardKind {
+  REPOSITORY_MATURITY
+  RELEASE_READINESS
+  PROOF_COMPLETENESS
+}
+
+enum CriterionStatus {
+  PASS
+  FAIL
+  UNKNOWN
+  NOT_APPLICABLE
+}
+
+enum EvidenceConfidence {
+  HIGH
+  MEDIUM
+  LOW
+}
+
+enum EvidenceProvenance {
+  SOURCE_SNAPSHOT
+  REPOSITORY_SNAPSHOT
+  PULL_REQUEST_SNAPSHOT
+  GENERATED_ARTIFACT
+  WEBHOOK_PAYLOAD
+}
+
+model Project {
+  id                       String    @id @default(cuid())
+  ownerId                  String?
+  name                     String
+  goal                     String    @default("")
+  repoUrl                  String    @default("")
+  prUrl                    String    @default("")
+  githubRepositoryFullName String?
+  githubRepositoryId       String?
+  githubInstallationId     String?
+  githubBindingStatus      String    @default("unbound")
+  githubBindingDisabledAt  DateTime?
+  status                   String    @default("idle")
+  activeAnalysisRunId      String?   @unique
+  createdAt                DateTime  @default(now())
+  updatedAt                DateTime  @updatedAt
+
+  owner               User?                @relation(fields: [ownerId], references: [id], onDelete: Restrict)
+  sources             Source[]
+  knowledge           KnowledgeSummary?
+  repoAnalysis        RepoAnalysis?
+  workflow            Workflow?
+  releaseReport       ReleaseReport?
+  proofPack           ProofPack?
+  webhookDeliveries   WebhookDelivery[]
+  aiUsageEvents       AiUsageEvent[]
+  analysisRuns        AnalysisRun[]        @relation("ProjectAnalysisRuns")
+  activeAnalysisRun   AnalysisRun?         @relation("ActiveAnalysisRun", fields: [activeAnalysisRunId], references: [id], onDelete: SetNull)
+  jobs                Job[]
+  artifacts           ArtifactVersion[]
+  evidenceRecords     EvidenceRecord[]
+  scorecards          Scorecard[]
+  repositorySnapshots RepositorySnapshot[]
+
+  @@unique([githubInstallationId, githubRepositoryFullName])
+  @@unique([githubInstallationId, githubRepositoryId])
+  @@index([ownerId, updatedAt])
+  @@index([githubInstallationId])
+}
+
+model RepositorySnapshot {
+  id                 String   @id @default(cuid())
+  projectId          String
+  analysisRunId      String   @unique
+  installationId     String
+  repositoryId       String
+  repositoryFullName String
+  commitSha          String
+  treeSha            String
+  collectorVersion   String
+  complete           Boolean  @default(false)
+  truncated          Boolean  @default(false)
+  diagnostics        Json
+  entryCount         Int      @default(0)
+  sourceFileCount    Int      @default(0)
+  decodedBytes       Int      @default(0)
+  observedAt         DateTime
+  createdAt          DateTime @default(now())
+
+  project     Project          @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  analysisRun AnalysisRun      @relation(fields: [analysisRunId], references: [id], onDelete: Restrict)
+  files       RepositoryFile[]
+
+  @@unique([projectId, repositoryId, commitSha, collectorVersion])
+  @@index([projectId, createdAt])
+}
+
+model RepositoryFile {
+  id          String   @id @default(cuid())
+  snapshotId  String
+  path        String
+  mode        String
+  objectType  String
+  blobSha     String?
+  size        Int?
+  status      String
+  language    String?
+  content     String?
+  contentHash String?
+  diagnostic  String?
+  createdAt   DateTime @default(now())
+
+  snapshot RepositorySnapshot @relation(fields: [snapshotId], references: [id], onDelete: Restrict)
+
+  @@unique([snapshotId, path])
+  @@index([snapshotId, status])
+}
+
+model User {
+  id            String   @id
+  name          String
+  email         String
+  emailVerified Boolean  @default(false)
+  image         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  sessions      Session[]
+  accounts      Account[]
+  projects      Project[]
+  auditLogs     AuditLog[]
+  aiUsageEvents AiUsageEvent[]
+  analysisRuns  AnalysisRun[]
+  jobs          Job[]
+
+  @@unique([email])
+  @@map("user")
+}
+
+model Session {
+  id        String   @id
+  expiresAt DateTime
+  token     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+  @@map("verification")
 }
 
 model Source {
@@ -37,93 +250,448 @@ model Source {
 }
 
 model KnowledgeSummary {
-  id                      String   @id @default(cuid())
-  projectId               String   @unique
-  mainTopic               String   @default("")
-  keyConcepts             String   @default("[]")
-  implementationPatterns  String   @default("[]")
-  buildableTasks          String   @default("[]")
-  warningsOrPitfalls      String   @default("[]")
-  termsToUnderstand       String   @default("[]")
-  sourceEvidence          String   @default("[]")
-  recommendedNextAction   String   @default("")
-  rawOutput               String   @default("")
-  createdAt               DateTime @default(now())
+  id                     String   @id @default(cuid())
+  projectId              String   @unique
+  mainTopic              String   @default("")
+  keyConcepts            String   @default("[]")
+  implementationPatterns String   @default("[]")
+  buildableTasks         String   @default("[]")
+  warningsOrPitfalls     String   @default("[]")
+  termsToUnderstand      String   @default("[]")
+  sourceEvidence         String   @default("[]")
+  recommendedNextAction  String   @default("")
+  rawOutput              String   @default("")
+  createdAt              DateTime @default(now())
 
   project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 }
 
 model RepoAnalysis {
-  id                    String   @id @default(cuid())
-  projectId             String   @unique
-  repoUrl               String   @default("")
-  detectedStack         String   @default("[]")
-  architectureSummary   String   @default("")
-  importantFiles        String   @default("[]")
-  likelyFeatureLocations String @default("[]")
-  testLocations         String   @default("[]")
-  setupQuality          String   @default("")
-  missingItems          String   @default("[]")
-  risks                 String   @default("[]")
-  maturityScore         Int      @default(0)
-  recommendedFixes      String   @default("[]")
-  rawOutput             String   @default("")
-  graphJson             String   @default("null")
-  createdAt             DateTime @default(now())
+  id                     String   @id @default(cuid())
+  projectId              String   @unique
+  repoUrl                String   @default("")
+  detectedStack          String   @default("[]")
+  architectureSummary    String   @default("")
+  importantFiles         String   @default("[]")
+  likelyFeatureLocations String   @default("[]")
+  testLocations          String   @default("[]")
+  setupQuality           String   @default("")
+  missingItems           String   @default("[]")
+  risks                  String   @default("[]")
+  maturityScore          Int      @default(0)
+  scoreCompleteness      Float    @default(0)
+  scoreStatus            String   @default("unknown")
+  scorecardVersion       String   @default("")
+  recommendedFixes       String   @default("[]")
+  rawOutput              String   @default("")
+  graphJson              String   @default("null")
+  createdAt              DateTime @default(now())
 
   project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 }
 
 model Workflow {
-  id                String   @id @default(cuid())
-  projectId         String   @unique
-  title             String   @default("")
-  objective         String   @default("")
-  tasksJson         String   @default("[]")
-  acceptanceCriteria String  @default("[]")
-  completedAcceptanceCriteria String @default("[]")
-  testPlan          String   @default("")
-  expectedFiles     String   @default("[]")
-  reviewChecklist   String   @default("[]")
-  rawOutput         String   @default("")
-  createdAt         DateTime @default(now())
+  id                          String   @id @default(cuid())
+  projectId                   String   @unique
+  title                       String   @default("")
+  objective                   String   @default("")
+  tasksJson                   String   @default("[]")
+  acceptanceCriteria          String   @default("[]")
+  completedAcceptanceCriteria String   @default("[]")
+  testPlan                    String   @default("")
+  expectedFiles               String   @default("[]")
+  reviewChecklist             String   @default("[]")
+  rawOutput                   String   @default("")
+  createdAt                   DateTime @default(now())
 
   project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 }
 
 model ReleaseReport {
-  id                        String   @id @default(cuid())
-  projectId                 String   @unique
-  releaseScore              Int      @default(0)
-  decision                  String   @default("")
-  topRisks                  String   @default("[]")
-  missingTests              String   @default("[]")
-  missingDocs               String   @default("[]")
-  configOrEnvIssues         String   @default("[]")
-  backwardCompatibility     String   @default("[]")
-  releaseChecklist          String   @default("[]")
-  releaseNotesDraft         String   @default("")
-  recommendedFixesBeforeMerge String @default("[]")
-  rawOutput                 String   @default("")
-  createdAt                 DateTime @default(now())
+  id                          String   @id @default(cuid())
+  projectId                   String   @unique
+  releaseScore                Int      @default(0)
+  scoreCompleteness           Float    @default(0)
+  scoreStatus                 String   @default("unknown")
+  scorecardVersion            String   @default("")
+  decision                    String   @default("")
+  topRisks                    String   @default("[]")
+  missingTests                String   @default("[]")
+  missingDocs                 String   @default("[]")
+  configOrEnvIssues           String   @default("[]")
+  backwardCompatibility       String   @default("[]")
+  releaseChecklist            String   @default("[]")
+  releaseNotesDraft           String   @default("")
+  recommendedFixesBeforeMerge String   @default("[]")
+  rawOutput                   String   @default("")
+  createdAt                   DateTime @default(now())
 
   project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 }
 
 model ProofPack {
-  id                String   @id @default(cuid())
-  projectId         String   @unique
-  portfolioSummary  String   @default("")
-  resumeBullet      String   @default("")
-  demoVideoScript   String   @default("")
-  interviewExplanation String @default("")
-  linkedinPost      String   @default("")
-  proofScore        Int      @default(0)
-  missingProofItems String   @default("[]")
-  rawOutput         String   @default("")
-  createdAt         DateTime @default(now())
+  id                   String   @id @default(cuid())
+  projectId            String   @unique
+  portfolioSummary     String   @default("")
+  resumeBullet         String   @default("")
+  demoVideoScript      String   @default("")
+  interviewExplanation String   @default("")
+  linkedinPost         String   @default("")
+  proofScore           Int      @default(0)
+  scoreCompleteness    Float    @default(0)
+  scoreStatus          String   @default("unknown")
+  scorecardVersion     String   @default("")
+  missingProofItems    String   @default("[]")
+  rawOutput            String   @default("")
+  createdAt            DateTime @default(now())
 
   project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+model GitHubLifecycleDelivery {
+  id             String   @id @default(cuid())
+  deliveryId     String   @unique
+  event          String
+  action         String
+  installationId String
+  payloadSha256  String
+  payload        Json
+  receivedAt     DateTime @default(now())
+
+  @@index([installationId, receivedAt])
+}
+
+model WebhookDelivery {
+  id            String    @id @default(cuid())
+  deliveryId    String    @unique
+  projectId     String
+  event         String
+  action        String    @default("")
+  status        String    @default("received")
+  eventKey      String    @unique
+  payloadSha256 String
+  payload       Json
+  errorCode     String?
+  receivedAt    DateTime  @default(now())
+  processedAt   DateTime?
+
+  attempts      Int       @default(0)
+  lastErrorCode String?
+  lastErrorAt   DateTime?
+
+  project   Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  jobs      Job[]
+  artifacts ArtifactVersion[]
+
+  @@index([projectId, receivedAt])
+}
+
+model AnalysisRun {
+  id                 String            @id @default(cuid())
+  projectId          String
+  ownerId            String
+  status             AnalysisRunStatus @default(QUEUED)
+  inputSnapshot      Json
+  inputHash          String
+  commitSha          String?
+  pipelineVersion    String
+  promptVersion      String
+  modelConfigVersion String
+  modelConfig        Json
+  attemptCount       Int               @default(0)
+  failureClass       String?
+  failureCode        String?
+  failureMessage     String?
+  inputTokens        Int               @default(0)
+  outputTokens       Int               @default(0)
+  totalTokens        Int               @default(0)
+  queuedAt           DateTime          @default(now())
+  startedAt          DateTime?
+  completedAt        DateTime?
+  ledgerSealedAt     DateTime?
+  cancelRequestedAt  DateTime?
+  cancelledAt        DateTime?
+  cancellationReason String?
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+
+  project            Project             @relation("ProjectAnalysisRuns", fields: [projectId], references: [id], onDelete: Restrict)
+  owner              User                @relation(fields: [ownerId], references: [id], onDelete: Restrict)
+  activeForProject   Project?            @relation("ActiveAnalysisRun")
+  stages             AnalysisStageRun[]
+  jobs               Job[]
+  artifacts          ArtifactVersion[]
+  evidenceRecords    EvidenceRecord[]
+  scorecards         Scorecard[]
+  repositorySnapshot RepositorySnapshot?
+
+  @@index([projectId, createdAt])
+  @@index([ownerId, createdAt])
+  @@index([id, projectId, ownerId])
+  @@index([status, queuedAt])
+}
+
+model AnalysisStageRun {
+  id                 String              @id @default(cuid())
+  analysisRunId      String
+  stage              AnalysisStageName
+  ordinal            Int
+  status             AnalysisStageStatus @default(PENDING)
+  attemptCount       Int                 @default(0)
+  inputHash          String?
+  outputHash         String?
+  inputTokens        Int                 @default(0)
+  outputTokens       Int                 @default(0)
+  totalTokens        Int                 @default(0)
+  failureClass       String?
+  failureCode        String?
+  failureMessage     String?
+  promptId           String?
+  promptVersion      String?
+  agentSchemaVersion String?
+  requestedProvider  String?
+  requestedModel     String?
+  startedAt          DateTime?
+  completedAt        DateTime?
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+
+  analysisRun     AnalysisRun       @relation(fields: [analysisRunId], references: [id], onDelete: Cascade)
+  artifacts       ArtifactVersion[]
+  evidenceRecords EvidenceRecord[]
+
+  @@unique([analysisRunId, stage])
+  @@unique([analysisRunId, ordinal])
+  @@index([analysisRunId, status])
+}
+
+model Job {
+  id                String    @id @default(cuid())
+  kind              JobKind
+  status            JobStatus @default(QUEUED)
+  projectId         String
+  ownerId           String
+  analysisRunId     String?
+  webhookDeliveryId String?
+  payload           Json?
+  attemptCount      Int       @default(0)
+  maxAttempts       Int       @default(5)
+  availableAt       DateTime  @default(now())
+  leaseOwner        String?
+  leaseToken        String?   @unique
+  leaseExpiresAt    DateTime?
+  heartbeatAt       DateTime?
+  failureClass      String?
+  failureCode       String?
+  failureMessage    String?
+  startedAt         DateTime?
+  completedAt       DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  project         Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  owner           User             @relation(fields: [ownerId], references: [id], onDelete: Restrict)
+  analysisRun     AnalysisRun?     @relation(fields: [analysisRunId], references: [id], onDelete: Cascade)
+  webhookDelivery WebhookDelivery? @relation(fields: [webhookDeliveryId], references: [id], onDelete: Cascade)
+
+  @@unique([analysisRunId])
+  @@unique([webhookDeliveryId])
+  @@index([status, availableAt])
+  @@index([leaseExpiresAt])
+  @@index([projectId, createdAt])
+  @@index([id, projectId, ownerId, kind])
+}
+
+model ArtifactVersion {
+  id                 String   @id @default(cuid())
+  projectId          String
+  analysisRunId      String?
+  analysisStageRunId String?
+  webhookDeliveryId  String?
+  kind               String
+  schemaVersion      Int      @default(1)
+  content            Json
+  contentHash        String
+  promptId           String?
+  promptVersion      String?
+  agentSchemaVersion String?
+  requestedProvider  String?
+  requestedModel     String?
+  createdAt          DateTime @default(now())
+
+  project          Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  analysisRun      AnalysisRun?      @relation(fields: [analysisRunId], references: [id], onDelete: Cascade)
+  analysisStageRun AnalysisStageRun? @relation(fields: [analysisStageRunId], references: [id], onDelete: Cascade)
+  webhookDelivery  WebhookDelivery?  @relation(fields: [webhookDeliveryId], references: [id], onDelete: Cascade)
+
+  @@unique([analysisRunId, kind, schemaVersion])
+  @@unique([webhookDeliveryId, kind, schemaVersion])
+  @@index([projectId, createdAt])
+  @@index([analysisStageRunId])
+}
+
+model EvidenceRecord {
+  id                 String             @id @default(cuid())
+  projectId          String
+  analysisRunId      String
+  analysisStageRunId String?
+  stableEvidenceId   String
+  evidenceType       String
+  source             String
+  collectorId        String
+  collectorVersion   String
+  observedAt         DateTime
+  repositoryFullName String?
+  commitSha          String?
+  path               String?
+  lineStart          Int?
+  lineEnd            Int?
+  checkId            String?
+  contentHash        String
+  facts              Json
+  provenance         EvidenceProvenance
+  confidence         EvidenceConfidence
+  createdAt          DateTime           @default(now())
+
+  project          Project                   @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  analysisRun      AnalysisRun               @relation(fields: [analysisRunId], references: [id], onDelete: Restrict)
+  analysisStageRun AnalysisStageRun?         @relation(fields: [analysisStageRunId], references: [id], onDelete: Restrict)
+  criterionLinks   CriterionResultEvidence[]
+
+  @@unique([analysisRunId, stableEvidenceId])
+  @@index([projectId, analysisRunId, evidenceType])
+  @@index([contentHash])
+}
+
+model Scorecard {
+  id                      String        @id @default(cuid())
+  projectId               String
+  analysisRunId           String
+  kind                    ScorecardKind
+  version                 String
+  score                   Int?
+  completenessRatio       Float
+  completenessBasisPoints Int
+  totalWeight             Int
+  knownWeight             Int
+  passedWeight            Int
+  applicableCount         Int
+  evaluatedCount          Int
+  passCount               Int
+  failCount               Int
+  unknownCount            Int
+  notApplicableCount      Int
+  createdAt               DateTime      @default(now())
+
+  project          Project           @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  analysisRun      AnalysisRun       @relation(fields: [analysisRunId], references: [id], onDelete: Restrict)
+  criterionResults CriterionResult[]
+
+  @@unique([analysisRunId, kind, version])
+  @@index([projectId, kind, createdAt])
+}
+
+model CriterionResult {
+  id               String          @id @default(cuid())
+  scorecardId      String
+  criterionId      String
+  criterionVersion String
+  status           CriterionStatus
+  weight           Int
+  reasonCode       String
+  reason           String
+  evaluatedAt      DateTime
+  createdAt        DateTime        @default(now())
+
+  scorecard     Scorecard                 @relation(fields: [scorecardId], references: [id], onDelete: Restrict)
+  evidenceLinks CriterionResultEvidence[]
+
+  @@unique([scorecardId, criterionId, criterionVersion])
+  @@index([scorecardId, status])
+}
+
+model CriterionResultEvidence {
+  criterionResultId String
+  evidenceRecordId  String
+  createdAt         DateTime @default(now())
+
+  criterionResult CriterionResult @relation(fields: [criterionResultId], references: [id], onDelete: Restrict)
+  evidenceRecord  EvidenceRecord  @relation(fields: [evidenceRecordId], references: [id], onDelete: Restrict)
+
+  @@id([criterionResultId, evidenceRecordId])
+  @@index([evidenceRecordId])
+}
+
+model RateLimitBucket {
+  key         String   @id
+  windowStart DateTime
+  count       Int      @default(0)
+  updatedAt   DateTime @updatedAt
+
+  @@index([windowStart])
+}
+
+model AiBudgetBucket {
+  key            String   @id
+  periodStart    DateTime
+  usedTokens     Int      @default(0)
+  reservedTokens Int      @default(0)
+  updatedAt      DateTime @updatedAt
+
+  @@index([periodStart])
+}
+
+model AiTokenReservation {
+  id               String              @id @default(cuid())
+  userId           String
+  projectId        String?
+  userBucketKey    String
+  projectBucketKey String?
+  operation        String
+  reservedTokens   Int
+  actualTokens     Int?
+  status           AiReservationStatus @default(RESERVED)
+  createdAt        DateTime            @default(now())
+  settledAt        DateTime?
+  usageEvent       AiUsageEvent?
+
+  @@index([userId, createdAt])
+  @@index([projectId, createdAt])
+  @@index([status, createdAt])
+}
+
+model AiUsageEvent {
+  id                String   @id @default(cuid())
+  userId            String?
+  projectId         String?
+  operation         String
+  provider          String
+  requestedProvider String
+  requestedModel    String
+  responseProvider  String?
+  responseModel     String?
+  success           Boolean
+  errorCode         String?
+  latencyMs         Int
+  pipelineVersion   String?
+  promptId          String?
+  promptVersion     String?
+  schemaVersion     String?
+  finishReason      String?
+  responseId        String?
+  attemptCount      Int?
+  reservationId     String?  @unique
+  inputTokens       Int?
+  outputTokens      Int?
+  totalTokens       Int?
+  createdAt         DateTime @default(now())
+
+  user        User?               @relation(fields: [userId], references: [id], onDelete: SetNull)
+  project     Project?            @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  reservation AiTokenReservation? @relation(fields: [reservationId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([projectId, createdAt])
 }
 
 model AuditLog {
@@ -131,5 +699,10 @@ model AuditLog {
   action    String
   details   String   @default("")
   projectId String   @default("")
+  userId    String?
   createdAt DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
 }

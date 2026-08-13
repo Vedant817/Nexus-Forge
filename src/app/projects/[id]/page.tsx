@@ -9,6 +9,15 @@ import { Button } from "@/components/ui/button"
 import { ErrorBoundary } from "@/components/ErrorBoundary"
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts"
 
+interface AnalysisRunView {
+  id: string
+  status: string
+  attemptCount: number
+  failureClass?: string | null
+  failureMessage?: string | null
+  stages: { stage: string; status: string; attemptCount: number; failureMessage?: string | null }[]
+}
+
 interface ProjectDetail {
   id: string
   name: string
@@ -24,6 +33,7 @@ interface ProjectDetail {
   proofPack: Record<string, unknown> | null
   createdAt: string
   updatedAt: string
+  analysisRuns?: AnalysisRunView[]
 }
 
 export default function ProjectPage() {
@@ -33,9 +43,11 @@ export default function ProjectPage() {
   const [optimisticAnalyzing, setOptimisticAnalyzing] = useState(false)
   const [isNotFound, setIsNotFound] = useState(false)
   const [error, setError] = useState("")
+  const [run, setRun] = useState<AnalysisRunView | null>(null)
+  const [cancelling, setCancelling] = useState(false)
 
-  const isAnalyzing = project?.status.startsWith("analyzing") || optimisticAnalyzing
-  const canRunAnalysis = !isAnalyzing && !optimisticAnalyzing && (project?.sources?.length ?? 0) > 0
+  const isAnalyzing = Boolean(run && !["SUCCEEDED", "FAILED", "CANCELLED"].includes(run.status)) || project?.status.startsWith("analyzing") || optimisticAnalyzing
+  const canRunAnalysis = !isAnalyzing && ((project?.sources?.length ?? 0) > 0 || Boolean(project?.repoUrl))
 
   useEffect(() => {
     fetch(`/api/projects/${params.id}`)
@@ -44,32 +56,71 @@ export default function ProjectPage() {
         if (!res.ok) throw new Error("Failed to load")
         return res.json()
       })
-      .then(data => { if (data) { setProject(data); if (!data.status.startsWith("analyzing")) setOptimisticAnalyzing(false) } })
+      .then(data => {
+        if (data) {
+          setProject(data)
+          if (data.analysisRuns?.[0]) {
+            setRun(data.analysisRuns[0])
+            setOptimisticAnalyzing(true)
+          } else if (!data.status.startsWith("analyzing")) {
+            setOptimisticAnalyzing(false)
+          }
+        }
+      })
       .catch(() => setError("Failed to load project"))
       .finally(() => setLoading(false))
   }, [params.id])
 
   useEffect(() => {
-    let id: ReturnType<typeof setInterval>
-    if (isAnalyzing) {
-      id = setInterval(() => {
-        fetch(`/api/projects/${params.id}`)
-          .then(res => res.ok ? res.json() : null)
-          .then(data => { 
-            if (data) { 
-              setProject(data)
-              if (!data.status.startsWith("analyzing")) {
-                setOptimisticAnalyzing(false)
-                clearInterval(id)
-              }
-            } 
-          })
-      }, 2000)
+    if (!run?.id || !isAnalyzing) return
+    let stopped = false
+    let failures = 0
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const scheduleRetry = () => {
+      if (stopped) return
+      failures += 1
+      setError("Temporarily unable to refresh analysis status; retrying…")
+      timer = setTimeout(poll, Math.min(15_000, 1_000 * 2 ** Math.min(failures, 4)))
     }
+
+    const poll = async () => {
+      try {
+        const response = await fetch(`/api/projects/${params.id}/runs/${run.id}`)
+        if (response.status === 404) {
+          stopped = true
+          setOptimisticAnalyzing(false)
+          setError("The active analysis run is no longer available.")
+          return
+        }
+        if (!response.ok) {
+          scheduleRetry()
+          return
+        }
+        const nextRun = await response.json() as AnalysisRunView
+        if (stopped) return
+        failures = 0
+        setError("")
+        setRun(nextRun)
+        if (["SUCCEEDED", "FAILED", "CANCELLED"].includes(nextRun.status)) {
+          stopped = true
+          setOptimisticAnalyzing(false)
+          setCancelling(false)
+          if (nextRun.failureMessage) setError(`${nextRun.failureClass ?? "Analysis failure"}: ${nextRun.failureMessage}`)
+          const projectResponse = await fetch(`/api/projects/${params.id}`)
+          if (projectResponse.ok) setProject(await projectResponse.json())
+          return
+        }
+        timer = setTimeout(poll, 2000)
+      } catch {
+        scheduleRetry()
+      }
+    }
+    timer = setTimeout(poll, 250)
     return () => {
-      if (id) clearInterval(id)
+      stopped = true
+      if (timer) clearTimeout(timer)
     }
-  }, [isAnalyzing, params.id])
+  }, [isAnalyzing, params.id, run?.id])
 
   if (isNotFound) nextNotFound()
   if (loading) return <LoadingSkeleton />
@@ -86,11 +137,11 @@ export default function ProjectPage() {
   ]
 
   const chartData = []
-  if (project.repoAnalysis && typeof project.repoAnalysis === 'object' && 'maturityScore' in project.repoAnalysis && typeof project.repoAnalysis.maturityScore === 'number') {
-    chartData.push({ name: 'Maturity', score: project.repoAnalysis.maturityScore })
+  if (project.repoAnalysis && typeof project.repoAnalysis === 'object' && 'maturityScore' in project.repoAnalysis && 'scoreStatus' in project.repoAnalysis && project.repoAnalysis.scoreStatus === 'scored' && typeof project.repoAnalysis.maturityScore === 'number') {
+    chartData.push({ name: 'Repository criteria', score: project.repoAnalysis.maturityScore })
   }
-  if (project.proofPack && typeof project.proofPack === 'object' && 'proofScore' in project.proofPack && typeof project.proofPack.proofScore === 'number') {
-    chartData.push({ name: 'Proof', score: project.proofPack.proofScore })
+  if (project.proofPack && typeof project.proofPack === 'object' && 'proofScore' in project.proofPack && 'scoreStatus' in project.proofPack && project.proofPack.scoreStatus === 'scored' && typeof project.proofPack.proofScore === 'number') {
+    chartData.push({ name: 'Proof completeness', score: project.proofPack.proofScore })
   }
 
   return (
@@ -119,11 +170,38 @@ export default function ProjectPage() {
                   <p className="font-semibold text-blue-900">Analysis in progress...</p>
                 </div>
                 <div className="pl-8 space-y-3">
-                  <StepIndicator status={project?.status} stepStatus="analyzing:knowledge" label="Distilling Knowledge" />
-                  <StepIndicator status={project?.status} stepStatus="analyzing:repo" label="Analyzing Repository Context" />
-                  <StepIndicator status={project?.status} stepStatus="analyzing:workflow" label="Planning Build Workflow" />
-                  <StepIndicator status={project?.status} stepStatus="analyzing:release" label="Evaluating Release Readiness" />
-                  <StepIndicator status={project?.status} stepStatus="analyzing:proof" label="Generating Proof of Work" />
+                  {(run?.stages ?? []).map(stage => (
+                    <div key={stage.stage} className="text-sm text-blue-900">
+                      <span className="font-medium">{stage.stage}</span>: {stage.status} (attempt {stage.attemptCount})
+                      {stage.failureMessage && <span className="block text-red-700">{stage.failureMessage}</span>}
+                    </div>
+                  ))}
+                  {run && !["SUCCEEDED", "FAILED", "CANCELLED"].includes(run.status) && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={cancelling || run.status === "CANCEL_REQUESTED"}
+                      onClick={async () => {
+                        setCancelling(true)
+                        setError("")
+                        try {
+                          const response = await fetch(`/api/projects/${project.id}/runs/${run.id}/cancel`, { method: "POST" })
+                          const data = await response.json()
+                          if (!response.ok) {
+                            setError(data.error || "Unable to cancel analysis.")
+                            setCancelling(false)
+                            return
+                          }
+                          setRun((current) => current ? { ...current, status: "CANCEL_REQUESTED" } : current)
+                        } catch {
+                          setError("Unable to cancel analysis.")
+                          setCancelling(false)
+                        }
+                      }}
+                    >
+                      {cancelling || run.status === "CANCEL_REQUESTED" ? "Cancellation requested" : "Cancel analysis"}
+                    </Button>
+                  )}
                 </div>
               </div>
             </CardContent>
@@ -182,12 +260,18 @@ export default function ProjectPage() {
                 setError("")
                 try {
                   const res = await fetch(`/api/projects/${project.id}/run-analysis`, { method: "POST" })
+                  const data = await res.json()
                   if (!res.ok) {
-                    const data = await res.json()
+                    if (res.status === 409 && data.runId) {
+                      setRun({ id: data.runId, status: data.status ?? "QUEUED", attemptCount: 0, stages: [] })
+                      setOptimisticAnalyzing(true)
+                      return
+                    }
                     setError(data.error || "Analysis failed")
                     setOptimisticAnalyzing(false)
                     return
                   }
+                  setRun({ id: data.runId, status: data.status, attemptCount: 0, stages: [] })
                 } catch {
                   setError("Failed to start analysis")
                   setOptimisticAnalyzing(false)
@@ -241,41 +325,6 @@ function NotFoundState() {
           Back to projects
         </Link>
       </div>
-    </div>
-  )
-}
-
-function StepIndicator({ status, stepStatus, label }: { status?: string, stepStatus: string, label: string }) {
-  const steps = [
-    "analyzing", 
-    "analyzing:knowledge", 
-    "analyzing:repo", 
-    "analyzing:workflow", 
-    "analyzing:release", 
-    "analyzing:proof"
-  ]
-  const currentIndex = steps.indexOf(status || "analyzing")
-  const stepIndex = steps.indexOf(stepStatus)
-  
-  const isCompleted = currentIndex > stepIndex
-  const isCurrent = currentIndex === stepIndex
-
-  return (
-    <div className="flex items-center gap-3">
-      {isCompleted ? (
-        <div className="h-4 w-4 rounded-full bg-blue-600 flex items-center justify-center shrink-0">
-          <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-          </svg>
-        </div>
-      ) : isCurrent ? (
-        <div className="h-4 w-4 animate-pulse rounded-full bg-blue-400 shrink-0" />
-      ) : (
-        <div className="h-4 w-4 rounded-full border-2 border-blue-200 shrink-0" />
-      )}
-      <p className={`text-sm ${isCurrent ? "text-blue-900 font-medium" : isCompleted ? "text-blue-700" : "text-blue-400"}`}>
-        {label}
-      </p>
     </div>
   )
 }

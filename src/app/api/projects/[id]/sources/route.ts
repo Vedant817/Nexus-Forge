@@ -4,9 +4,13 @@ import prisma from '@/lib/db/prisma'
 import { createSourceSchema } from '@/lib/security/validation'
 import { checkPromptInjection } from '@/lib/security/prompt-injection-guard'
 import { logAudit } from '@/lib/security/audit-log'
+import { requireProjectAccess } from '@/lib/auth/authorization'
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
+  const access = await requireProjectAccess(request.headers, id)
+  if (!access.ok) return access.response
+
   try {
     const sources = await prisma.source.findMany({
       where: { projectId: id },
@@ -19,6 +23,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 }
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
+  const access = await requireProjectAccess(request.headers, id)
+  if (!access.ok) return access.response
+
   try {
     const project = await prisma.project.findUnique({ 
       where: { id },

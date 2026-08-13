@@ -1,9 +1,13 @@
 import { NextResponse } from 'next/server'
 import prisma from '@/lib/db/prisma'
 import { logAudit } from '@/lib/security/audit-log'
+import { requireProjectAccess } from '@/lib/auth/authorization'
 
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string; sourceId: string }> }) {
   const { id, sourceId } = await params
+  const access = await requireProjectAccess(request.headers, id)
+  if (!access.ok) return access.response
+
   try {
     const source = await prisma.source.findUnique({ where: { id: sourceId } })
     if (!source || source.projectId !== id) {

@@ -2,17 +2,22 @@ import { NextResponse } from 'next/server'
 import prisma from '@/lib/db/prisma'
 import { createProjectSchema } from '@/lib/security/validation'
 import { logAudit } from '@/lib/security/audit-log'
-import { parseGitHubRepoUrl, parseGitHubPrUrl } from '@/lib/security/url-safety'
+import { requireSession } from '@/lib/auth/authorization'
+import { resolveRepositoryIdentity } from '@/lib/github/repository-identity'
 
-export async function GET() {
+export async function GET(request: Request) {
+  const session = await requireSession(request.headers)
+  if (!session.ok) return session.response
+
   try {
     const projects = await prisma.project.findMany({
+      where: { ownerId: session.value.id },
       orderBy: { updatedAt: 'desc' },
       include: {
         _count: { select: { sources: true } },
-        repoAnalysis: { select: { maturityScore: true } },
-        proofPack: { select: { proofScore: true } },
-        releaseReport: { select: { releaseScore: true } },
+        repoAnalysis: { select: { maturityScore: true, scoreStatus: true, scoreCompleteness: true } },
+        proofPack: { select: { proofScore: true, scoreStatus: true, scoreCompleteness: true } },
+        releaseReport: { select: { releaseScore: true, scoreStatus: true, scoreCompleteness: true } },
       },
     })
     return NextResponse.json(projects)
@@ -22,6 +27,9 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const session = await requireSession(request.headers)
+  if (!session.ok) return session.response
+
   try {
     const body = await request.json()
     const parsed = createProjectSchema.safeParse(body)
@@ -31,21 +39,20 @@ export async function POST(request: Request) {
 
     const { name, goal, repoUrl, prUrl } = parsed.data
 
-    if (repoUrl) {
-      const result = parseGitHubRepoUrl(repoUrl)
-      if (!result.ok) {
-        return NextResponse.json({ error: result.error }, { status: 400 })
-      }
-    }
-    if (prUrl) {
-      const result = parseGitHubPrUrl(prUrl)
-      if (!result.ok) {
-        return NextResponse.json({ error: result.error }, { status: 400 })
-      }
+    const identity = resolveRepositoryIdentity(repoUrl, prUrl)
+    if (!identity.ok) {
+      return NextResponse.json({ error: identity.error }, { status: 400 })
     }
 
     const project = await prisma.project.create({
-      data: { name, goal, repoUrl, prUrl },
+      data: {
+        ownerId: session.value.id,
+        name,
+        goal,
+        repoUrl,
+        prUrl,
+        githubRepositoryFullName: identity.fullName,
+      },
     })
 
     await logAudit('project_created', `Project "${name}" created`, project.id)

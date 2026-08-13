@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Link from "next/link";
+import { AuthControls } from "@/components/auth-controls";
 
 // validateEnv(); // Removed to prevent blocking the entire app build/runtime
 
@@ -25,6 +26,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <Link href="/projects/new" className="inline-flex items-center justify-center rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors">
                 New Project
               </Link>
+              <AuthControls />
             </nav>
           </div>
         </header>
