@@ -8,8 +8,8 @@ export default function HomePage() {
           Turn learning into <span className="text-primary">shipped proof-of-work</span>
         </h1>
         <p className="text-lg text-muted-foreground mb-8 leading-relaxed">
-          Nexus Forge is an AI-native workflow operator that turns YouTube transcripts, blog posts, GitHub repos, PRs, 
-          and AI coding-agent chats into executable build workflows, release-readiness reports, and portfolio-ready proof packs.
+          Nexus Forge is an evidence-first repository intelligence tool that turns verifiable repository findings into
+          build workflows, release-readiness reports, and review-ready portfolio drafts.
         </p>
         <div className="flex gap-4 justify-center">
           <Link
@@ -32,7 +32,7 @@ export default function HomePage() {
         <div className="grid md:grid-cols-3 gap-8">
           {[
             { step: "1", title: "Ingest", desc: "Add learning sources — YouTube transcripts, blog posts, Substack articles, AI-agent chat logs, GitHub repos, and PRs." },
-            { step: "2", title: "Analyze", desc: "Five AI agents extract knowledge, analyze repo readiness, plan workflows, review release safety, and generate proof packs." },
+            { step: "2", title: "Analyze", desc: "A five-stage LLM-assisted pipeline explains collected evidence, plans workflows, reviews risks, and drafts proof packs." },
             { step: "3", title: "Ship", desc: "Export executable workflows with copyable AI prompts, release-readiness reports, and portfolio-ready proof-of-work documentation." },
           ].map((item) => (
             <div key={item.step} className="text-center p-6 rounded-lg border bg-card">
@@ -51,9 +51,9 @@ export default function HomePage() {
         <div className="grid md:grid-cols-2 gap-6">
           {[
             { title: "Full Journey, Not Just Code", desc: "Code review tools check a PR. Nexus Forge checks the whole builder journey — learning, implementation, release readiness, and portfolio proof." },
-            { title: "Evidence-Based Scoring", desc: "No fake scores. Every score is computed from actual evidence — README quality, tests, architecture, CI/CD, security hygiene." },
+            { title: "Versioned Scorecards", desc: "Readiness findings distinguish observed evidence from missing access, unsupported checks, and model-generated explanations." },
             { title: "Copyable Agent Prompts", desc: "Every workflow task includes a copyable AI agent prompt that coding agents like Claude Code, Codex, and Cursor can use directly." },
-            { title: "Portfolio-Ready Output", desc: "Export proof packs with resume bullets, demo scripts, interview explanations, and LinkedIn posts — ready for hiring." },
+            { title: "Review-Ready Output", desc: "Export draft resume bullets, demo scripts, interview explanations, and LinkedIn posts for human review." },
           ].map((item) => (
             <div key={item.title} className="p-5 rounded-lg border bg-card">
               <h3 className="font-semibold mb-2">{item.title}</h3>

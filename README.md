@@ -1,117 +1,135 @@
 # Nexus Forge
 
-**The AI-Native Knowledge-to-Ship Orchestrator**
+**Evidence-first repository intelligence**
 
-Turn fragmented learning—YouTube transcripts, technical blogs, GitHub repos, PRs, and AI coding-agent chat logs—into **executable build workflows, release-readiness reports, and portfolio-ready proof-of-work packs**.
+Nexus Forge collects verifiable repository evidence, turns it into versioned readiness findings, and uses LLMs only to explain, organize, and draft from that evidence.
 
-## The Problem With AI Tooling Today
+> The current implementation is being migrated toward this architecture. See [ADR-0001](docs/adr/0001-evidence-first-repository-intelligence.md) for the trust boundary and the limitations below for what is not yet complete.
 
-Modern AI development is fragmented. You use ChatGPT or Claude to learn a concept and plan an architecture. You use Cursor or GitHub Copilot to write the code. But what about everything else? 
-- Who checks if your repo is actually production-ready? 
-- Who tracks the "gap" between what you planned and what you built? 
-- Who writes the portfolio updates, resume bullets, and LinkedIn posts to prove your work?
+## What it does
 
-## The Solution: Nexus Forge
+- **Source intake** — Accepts learning material, repository URLs, and pull-request URLs.
+- **Five-stage LLM-assisted analysis** — Distills sources, organizes repository context, drafts workflows, reviews release risks, and creates review-ready portfolio copy.
+- **Versioned deterministic scorecards** — Evaluates persisted evidence with PASS/FAIL/UNKNOWN/N/A criteria and explicit completeness. A declared test or Dockerfile is not treated as proof that tests or builds passed.
+- **Repository dependency map** — Visualizes repository-derived nodes and edges. Until semantic extraction is broad enough, this is not presented as a complete architecture model.
+- **Review-ready drafts** — Produces resume and LinkedIn drafts for human review; it does not publish automatically.
 
-Nexus Forge doesn't just write code—it manages the **entire builder journey**. It is an end-to-end orchestrator that bridges the gap between raw knowledge and a shipped, portfolio-ready product.
+## Trust model
 
-### Core Features
+Repository content is untrusted input. Deterministic collectors are responsible for evidence and scorecard statuses. LLM stages may explain, organize, and draft only from supplied evidence references; they are not authoritative evidence sources and must not assign readiness scores.
 
-- **Intake Engine** — Paste YouTube transcripts, blog posts, agent chat logs, GitHub repos, and PR URLs directly into the Forge.
-- **Knowledge Distillation** — Extracts key concepts, architectural patterns, and actionable build tasks from raw learning sources.
-- **Repo Context Analysis** — Scores your repository's maturity based on actual evidence (README quality, test coverage, CI/CD pipelines, Docker setup, and environment safety).
-- **Workflow Planner** — Generates a Kanban-style build board. Every task includes a **copyable AI agent prompt** that you can paste directly into coding agents like Cursor or Claude Code.
-- **Cursor / IDE Context Bridge** — Export your "In Progress" Kanban tasks directly into a `.cursorrules` file. Drop it in your local repository to perfectly prime your local AI editor with the global project objective, architecture constraints, and exact task criteria.
-- **Living Architecture Map** — Generates a beautiful, interactive, and draggable React Flow node graph mapping out your entire software system based on the repository analysis—the ultimate developer onboarding tool.
-- **Release Readiness Reviewer** — Provides evidence-based scoring (Go / Go-with-fixes / No-Go) highlighting the exact gaps preventing a production release.
-- **Proof-of-Work Generator** — Automatically generates a portfolio summary, resume bullets, demo scripts, technical interview explanations, and LinkedIn posts.
-- **Auto-Marketing GitHub Webhooks** — Hook Nexus Forge into your GitHub repository. Every time you merge a PR, the AI instantly writes and updates your LinkedIn post and Resume bullet based on what you just shipped!
+The model boundary uses AI SDK `Output.object` with stage-specific prompt/schema versions, recursive pre-provider secret redaction, a separate untrusted-data envelope, Zod validation, and one conservative JSON-envelope repair attempt that never invents fields. Invalid output becomes a typed safe failure; raw invalid output is never stored. Token budgets are reconciled before a successful result is returned. Safe usage telemetry is fail-open and stores no prompts, completions, headers, provider bodies, or secrets.
 
-## How to Integrate Nexus Forge into Your Daily Workflow
+Groq native structured-output conformance for the default `llama-3.3-70b-versatile` model is **not attested**. The registry records this capability as unknown; deterministic AI SDK parsing and schema validation are the enforcement boundary.
 
-Nexus Forge is designed to bridge the gap between "planning" and "doing". Here is the optimal daily workflow:
+A finding should distinguish:
 
-1. **Ingest & Map:** Start by dropping your GitHub repo URL and any relevant learning materials (blog posts, transcripts) into the Intake tab. Run the analysis to generate your **Living Architecture Map** so you understand exactly how the system connects.
-2. **Plan & Sync:** Go to the Workflow tab. You'll see a Kanban board of AI-generated build tasks. Drag a task to "In Progress", click **Sync to IDE (.cursorrules)**, and drop that file into your local project root.
-3. **Build:** Open Cursor or Copilot. Your AI editor now has perfect context about your global objective, architecture, and exact task criteria. Tell your AI editor to "Build the current task" and watch it write accurate code without hallucinating.
-4. **Ship & Auto-Market:** Push your code and open a Pull Request. When you merge it, your configured **Nexus Forge Webhook** will automatically catch the merge, analyze the PR, and instantly generate a viral LinkedIn post and a polished resume bullet point for your portfolio.
+- `pass`
+- `fail`
+- `unknown`
+- `not_applicable`
 
-## Tech Stack
+and include its commit SHA when known, source reference, observation time, collector version, and confidence. See [the scorecard methodology](docs/evidence-scorecards.md), [evaluation rubric](docs/evaluation.md), and [roadmap](docs/roadmap.md).
 
-- **Framework:** Next.js 16 (App Router)
-- **Language:** TypeScript
-- **Styling:** Tailwind CSS + shadcn/ui
-- **Validation:** Zod
-- **Database:** PostgreSQL (Neon) via Prisma (`@prisma/adapter-pg`)
-- **Agent Orchestration:** Vercel AI SDK (`ai`) + Groq (`@ai-sdk/groq`)
-- **GitHub Integration:** Real GitHub REST API fetches
-- **Testing:** Vitest
-- **Build Tool:** Turbopack
+## Current limitations
 
-## Getting Started
+- Analysis currently runs on demand after an analysis request.
+- Legacy projection tables retain integer score columns for compatibility; `scoreStatus`, completeness, and the active-run scorecard are authoritative.
+- Provider calls can be repeated after worker crashes; fenced checkpoints prevent duplicate publication, not duplicate provider billing.
+- Safe usage telemetry is best-effort after fail-closed budget reconciliation and can be absent during a telemetry database outage.
+- Dependency maps parse JS/TS syntax only; computed loading, unresolved aliases, unsupported languages, and reached bounds are disclosed as incomplete. See [dependency maps](docs/dependency-maps.md).
+- Portfolio and social copy is a draft requiring review; generated prose is never promoted to verified evidence.
+- Web quality orchestration is patch-proposal-only. Deterministic checks require the dedicated [disposable worktree/container sandbox](docs/operations/quality-sandbox.md) and human patch review.
+- GitHub App collection pins repository snapshots and PR checks/reviews to immutable SHAs, but REST hard caps (50,000 collected tree entries, 3,000 PR files, 1,000 recent check suites, and 100 MiB Git blob support) are surfaced as incomplete evidence rather than silently ignored.
+- Connecting a repository uses an authenticated, same-origin reconciliation POST that validates installation-token access to the numeric repository ID; organization policy still determines who may install the GitHub App.
+
+## Tech stack
+
+- Next.js 16 App Router and React 19
+- TypeScript, Tailwind CSS, and shadcn/ui
+- PostgreSQL via Prisma 7
+- Vercel AI SDK 7 with Groq
+- Vitest
+
+## Getting started
 
 ### Prerequisites
 
-- Node.js 20+
+- Node.js 22+
 - npm
-
-### Installation
+- PostgreSQL
 
 ```bash
-# Clone and install
 git clone <your-repo-url> nexus-forge
 cd nexus-forge
 npm install
-
-# Set up environment
 cp .env.example .env
-# Edit .env with your Neon Database URL and Groq API Key
-
-# Initialize database
-npx prisma migrate dev --name init
-
-# Start development server
+npx prisma migrate dev
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) in your browser.
+Open <http://localhost:3000>.
 
-### Environment Variables
+## Configuration
 
-| Variable | Required | Default | Description |
-|----------|----------|---------|-------------|
-| `DATABASE_URL` | Yes | — | Neon PostgreSQL connection string (`postgresql://...`) |
-| `GROQ_API_KEY` | Yes | — | Groq API Key for agent inference |
-| `GROQ_MODEL` | No | `llama-3.3-70b-versatile` | Groq model to use for agents |
-| `GITHUB_TOKEN` | No | — | GitHub personal access token (for higher API rate limits) |
-| `NODE_ENV` | No | `development` | Environment mode |
-| `ANALYSIS_MAX_CONTENT_LENGTH` | No | `100000` | Max content size for sources |
-| `MAX_SOURCES_PER_PROJECT` | No | `20` | Max sources per project |
-| `CORS_ORIGINS` | No | — | Comma-separated allowed origins |
+| Variable | Required | Description |
+|---|---:|---|
+| `DATABASE_URL` | Yes | PostgreSQL connection string |
+| `GROQ_API_KEY` | For LLM stages | Groq API key |
+| `GROQ_MODEL` | No | Default model used by the stage registry |
+| `GROQ_ALLOWED_MODELS` | No | Comma-separated execution allowlist; defaults to only `GROQ_MODEL` |
+| `GITHUB_APP_ID` | For repository collection | GitHub App identifier used to sign short-lived app JWTs |
+| `GITHUB_APP_PRIVATE_KEY` / `_BASE64` | For repository collection | GitHub App private key; configure exactly one secret form |
+| `GITHUB_WEBHOOK_SECRET` | For webhooks | Secret used to authenticate raw webhook bytes; see the [webhook security runbook](docs/operations/webhook-security.md) |
+| `ANALYSIS_MAX_CONTENT_LENGTH` | No | Maximum accepted source length |
+| `MAX_SOURCES_PER_PROJECT` | No | Maximum sources per project |
 
-## AI Infrastructure
+See `.env.example` for the complete evolving configuration surface.
 
-Nexus Forge is powered by the **Vercel AI SDK** and **Groq**:
-- **Agent Pipeline** — 5 specialized AI agents run continuously in the background via `@ai-sdk/groq` using the ultra-fast `llama-3.3-70b-versatile` model.
-- **Structured Output** — Agents use Vercel AI SDK's `generateText()` paired with strict `zod-to-json-schema` injection to guarantee pristine JSON responses for the UI without hallucinations.
+## Durable workers
 
-## Security Features
-
-- **URL Safety:** Only HTTPS github.com URLs allowed; SSRF protection prevents access to private IPs/localhost.
-- **Prompt Injection Guard:** Detects instruction overrides, secret extraction, and command execution attempts in source content.
-- **Secret Redaction:** GitHub tokens, API keys, and credentials are automatically redacted before hitting the LLM.
-- **Rate Limiting:** Analysis endpoints are limited to 3 requests per minute per project.
-- **Input Validation:** Zod validation on all API inputs with strict content size limits.
-
-## Testing
+Analysis requests return `202 Accepted` and require one or more separate worker processes:
 
 ```bash
-npm run test        # Run tests
-npm run test:watch  # Watch mode
-npm run lint        # Lint
-npm run typecheck   # Type check
+npm run worker:analysis
 ```
 
+See [durable analysis worker operations](docs/operations/durable-analysis-workers.md) for migration order, scaling, leases, retries, cancellation, graceful shutdown, and exactly-once limitations.
 
+## Verification
 
+```bash
+npm run build
+npm run typecheck
+npm run lint
+npm test
+```
 
+CI requires all four checks.
+
+## Architecture direction
+
+```text
+GitHub App / uploaded sources
+             │
+             ▼
+   deterministic collectors
+             │
+             ▼
+ versioned evidence ledger
+             │
+       ┌─────┴─────┐
+       ▼           ▼
+ scorecards     constrained LLM stages
+       └─────┬─────┘
+             ▼
+ immutable analysis artifacts
+```
+
+The LLM may explain evidence, but it never creates evidence or scores itself. Repository collection uses repository-scoped, one-hour GitHub App installation tokens; shared personal tokens are rejected.
+
+## Product positioning
+
+> Nexus Forge is an evidence-first repository intelligence tool built with Next.js and PostgreSQL. It snapshots analysis inputs, derives versioned readiness findings and dependency maps from collected repository evidence, and uses schema-validated LLM stages to turn those findings into workflows and review-ready portfolio drafts. Repository and pull-request collection is pinned to immutable commit SHAs, with every REST cap represented as an explicit completeness limitation.
+
+The project's naming history follows the evolution of that thesis; see [ADR-0002](docs/adr/0002-product-positioning-and-naming.md).

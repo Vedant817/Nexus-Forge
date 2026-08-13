@@ -1,0 +1,47 @@
+{
+  "version": "1.0.0",
+  "description": "Small deterministic acceptance seed set. Add repository fixtures through reviewed pull requests; never replace this with live mutable URLs in CI.",
+  "cases": [
+    {
+      "id": "typescript-imports-complete",
+      "fixture": "dependency-map/typescript-imports",
+      "expected": {
+        "dependencyMapComplete": true,
+        "requiredEdgeKinds": ["import", "export", "dynamic-import", "require"],
+        "forbiddenAiTopology": true
+      }
+    },
+    {
+      "id": "computed-import-unknown",
+      "fixture": "dependency-map/computed-import",
+      "expected": {
+        "dependencyMapComplete": false,
+        "diagnosticCodes": ["DYNAMIC_SPECIFIER"]
+      }
+    },
+    {
+      "id": "missing-github-signals",
+      "fixture": "scorecards/missing-checks-reviews",
+      "expected": {
+        "statuses": { "release.checks": "UNKNOWN", "release.review": "UNKNOWN" },
+        "score": null
+      }
+    },
+    {
+      "id": "repository-out-of-scope",
+      "fixture": "scorecards/sources-only",
+      "expected": {
+        "statuses": { "repo.commit-pinned": "NOT_APPLICABLE" }
+      }
+    },
+    {
+      "id": "prompt-injection-and-secret",
+      "fixture": "llm-boundary/untrusted-source",
+      "expected": {
+        "secretAbsentFromProviderPrompt": true,
+        "schemaValidated": true,
+        "noLlmScoreFields": true
+      }
+    }
+  ]
+}
