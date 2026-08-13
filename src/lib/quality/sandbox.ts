@@ -1,6 +1,6 @@
 import 'server-only'
 
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { lstat, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { spawn } from 'node:child_process'
@@ -62,12 +62,25 @@ async function run(program: string, args: readonly string[], options: { cwd?: st
   })
 }
 
+export async function resolveSandboxEditTarget(root: string, relative: string): Promise<string> {
+  let target = root
+  const parts = relative.split('/')
+  for (const part of parts) {
+    target = path.join(target, part)
+    const metadata = await lstat(target)
+    if (metadata.isSymbolicLink()) throw new Error('Sandbox edits cannot follow symbolic links.')
+  }
+  const targetMetadata = await lstat(target)
+  if (!targetMetadata.isFile()) throw new Error('Sandbox edit target must be a regular file.')
+  return target
+}
+
 async function applyEdits(root: string, edits: readonly FileEdit[]): Promise<void> {
   if (edits.length > 100) throw new Error('Sandbox edit count exceeds 100.')
   for (const edit of edits) {
     const relative = validateSandboxRelativePath(edit.filePath)
     if (edit.oldString.length > 200_000 || edit.newString.length > 200_000) throw new Error('Sandbox edit exceeds text bounds.')
-    const target = path.join(root, ...relative.split('/'))
+    const target = await resolveSandboxEditTarget(root, relative)
     const content = await readFile(target, 'utf8')
     const first = content.indexOf(edit.oldString)
     if (first < 0 || content.indexOf(edit.oldString, first + 1) >= 0) throw new Error(`Edit target must match exactly once: ${relative}`)
