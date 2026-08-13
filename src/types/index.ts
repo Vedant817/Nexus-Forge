@@ -43,14 +43,15 @@ export interface RepoContextAgentOutput {
   setupQuality: string
   missingItems: string[]
   risks: string[]
-  maturityScore: number
   recommendedFixes: string[]
+  collectorFacts?: import('@/lib/evidence/collectors').RepositoryCollectorFacts
 }
 
 export interface WorkflowPlannerInput {
   projectGoal: string
   knowledgeSummary: KnowledgeDistillerOutput
   repoAnalysis?: RepoContextAgentOutput
+  evidenceIds?: string[]
   agentLogFindings?: string
 }
 
@@ -86,8 +87,6 @@ export interface ReleaseReadinessInput {
 }
 
 export interface ReleaseReadinessOutput {
-  releaseScore: number
-  decision: ReleaseDecision
   topRisks: string[]
   missingTests: string[]
   missingDocs: string[]
@@ -96,6 +95,7 @@ export interface ReleaseReadinessOutput {
   releaseChecklist: string[]
   releaseNotesDraft: string
   recommendedFixesBeforeMerge: string[]
+  collectorFacts?: import('@/lib/evidence/collectors').PullRequestCollectorFacts
 }
 
 export interface ProofOfWorkInput {
@@ -112,7 +112,6 @@ export interface ProofOfWorkOutput {
   demoVideoScript: string
   interviewExplanation: string
   linkedinPost: string
-  proofScore: number
   missingProofItems: string[]
 }
 

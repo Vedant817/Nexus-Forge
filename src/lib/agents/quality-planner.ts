@@ -1,6 +1,6 @@
 import type { QualityPlannerOutput } from './quality-agent-schemas'
 
-export async function qualityPlanner(goal: string): Promise<QualityPlannerOutput> {
+export async function qualityPlanner(goal: string, userId: string): Promise<QualityPlannerOutput> {
   const { getAgentRunner } = await import('@/lib/agents/ai-runner')
   const runner = await getAgentRunner()
 
@@ -18,7 +18,13 @@ Current project is Nexus Forge (Next.js 16, TypeScript, Tailwind, Prisma, Lemma 
 Return valid JSON matching the schema.`,
   }
 
-  return runner.runQualityPlanner!(input) as unknown as QualityPlannerOutput
+  return runner.runQualityPlanner!(input, {
+    userId,
+    operation: 'quality.planner',
+    promptId: 'quality-planner',
+    promptVersion: '1',
+    schemaVersion: '1',
+  }) as unknown as QualityPlannerOutput
 }
 
 export function getPlannerPrompt(goal: string): string {

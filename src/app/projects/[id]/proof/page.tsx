@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { useParams } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { ScorecardDetails } from "@/components/scorecard-details"
 
 interface ProofPageData {
   portfolioSummary: string
@@ -12,6 +13,9 @@ interface ProofPageData {
   interviewExplanation: string
   linkedinPost: string
   proofScore: number
+  scoreCompleteness: number
+  scoreStatus: string
+  scorecardVersion: string
   missingProofItems: string
 }
 
@@ -49,37 +53,17 @@ export default function ProofPage() {
       </div>
 
       <Card className="mb-6 border-indigo-100 bg-indigo-50/30">
-        <CardHeader>
-          <CardTitle className="text-indigo-800 text-lg">Auto-Marketing: GitHub Webhook</CardTitle>
-        </CardHeader>
+        <CardHeader><CardTitle className="text-indigo-800 text-lg">Review-required drafts</CardTitle></CardHeader>
         <CardContent>
-          <p className="text-sm text-indigo-700 mb-4">
-            Want automatic updates to your LinkedIn Post and Resume Bullet every time you merge code? 
-            Add this Webhook URL to your GitHub repository (Settings {">"} Webhooks {">"} Add Webhook). 
-            Select <strong>Content type: application/json</strong> and send only <strong>Pull Request</strong> events.
-          </p>
-          <div className="flex items-center gap-2">
-            <code className="text-xs bg-white p-2 rounded border flex-1 overflow-x-auto text-indigo-900 font-mono">
-              {typeof window !== 'undefined' ? window.location.origin : ''}/api/webhooks/github?projectId={params.id}
-            </code>
-            <Button 
-              variant="outline" 
-              className="shrink-0 bg-white"
-              onClick={() => {
-                navigator.clipboard.writeText(`${window.location.origin}/api/webhooks/github?projectId=${params.id}`)
-                alert("Webhook URL copied to clipboard!")
-              }}
-            >
-              Copy URL
-            </Button>
-          </div>
+          <p className="text-sm text-indigo-700">Portfolio, resume, and social text are LLM-assisted drafts. Verify every claim against the linked evidence scorecard before publishing.</p>
         </CardContent>
       </Card>
 
       <Card className="mb-6">
-        <CardHeader><CardTitle>Proof Score</CardTitle></CardHeader>
+        <CardHeader><CardTitle>Deterministic proof completeness</CardTitle></CardHeader>
         <CardContent>
-          <p className={`text-4xl font-bold ${scoreColor}`}>{data.proofScore}/100</p>
+          {data.scoreStatus === 'scored' ? <p className={`text-4xl font-bold ${scoreColor}`}>{data.proofScore}/100</p> : <p className="text-2xl font-bold">Unknown</p>}
+          <p className="mt-2 text-xs text-muted-foreground">Evidence completeness: {Math.round(data.scoreCompleteness * 100)}% · {data.scorecardVersion || 'legacy/unversioned'}</p>
         </CardContent>
       </Card>
 
@@ -132,6 +116,8 @@ export default function ProofPage() {
           </CardContent>
         </Card>
       )}
+
+      <ScorecardDetails projectId={String(params.id)} kind="PROOF_COMPLETENESS" />
     </div>
   )
 }

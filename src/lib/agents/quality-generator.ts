@@ -6,6 +6,7 @@ export async function qualityGenerator(
   description: string,
   acceptance: string,
   projectContext: string,
+  userId: string,
 ): Promise<QualityGeneratorOutput> {
   const { getAgentRunner } = await import('@/lib/agents/ai-runner')
   const runner = await getAgentRunner()
@@ -27,7 +28,13 @@ Given a unit description and acceptance criteria, propose precise file edits usi
 Return valid JSON matching the schema with an array of edits.`,
   }
 
-  return runner.runQualityGenerator!(input) as unknown as QualityGeneratorOutput
+  return runner.runQualityGenerator!(input, {
+    userId,
+    operation: 'quality.generator',
+    promptId: 'quality-generator',
+    promptVersion: '1',
+    schemaVersion: '1',
+  }) as unknown as QualityGeneratorOutput
 }
 
 export function getGeneratorPrompt(

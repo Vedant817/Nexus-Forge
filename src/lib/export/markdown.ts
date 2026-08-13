@@ -57,7 +57,10 @@ export function exportWorkflowMarkdown(workflow: WorkflowPlannerOutput): string 
   return md
 }
 
-export function exportProofPackMarkdown(proof: ProofOfWorkOutput): string {
+export function exportProofPackMarkdown(
+  proof: ProofOfWorkOutput,
+  scorecard?: { score: number | null; completenessRatio: number; version: string; evidenceIds: string[] },
+): string {
   let md = `# Proof of Work Pack\n\n`
 
   md += `## Portfolio Summary\n\n${proof.portfolioSummary}\n\n`
@@ -70,7 +73,15 @@ export function exportProofPackMarkdown(proof: ProofOfWorkOutput): string {
 
   md += `## LinkedIn Post\n\n${proof.linkedinPost}\n\n`
 
-  md += `## Proof Score: ${proof.proofScore}/100\n\n`
+  md += `## Deterministic Proof Completeness\n\n`
+  md += scorecard?.score === null || !scorecard
+    ? `Score: Unknown (insufficient observed evidence)\n\n`
+    : `Score: ${scorecard.score}/100\n\n`
+  if (scorecard) {
+    md += `Evidence completeness: ${Math.round(scorecard.completenessRatio * 100)}%  \nMethodology: ${scorecard.version}\n\n`
+    md += `Evidence IDs:\n${scorecard.evidenceIds.length ? scorecard.evidenceIds.map((id) => `- ${id}`).join('\n') : '- None linked'}\n\n`
+  }
+  md += `> Limitation: portfolio text is an LLM-assisted, review-required draft. Unknown signals are not failures and no claim is verified without linked deterministic evidence.\n\n`
 
   if (proof.missingProofItems.length > 0) {
     md += `## Missing Proof Items\n\n`

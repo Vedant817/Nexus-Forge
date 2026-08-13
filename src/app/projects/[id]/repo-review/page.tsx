@@ -4,9 +4,13 @@ import { useEffect, useState } from "react"
 import { useParams } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { ScorecardDetails } from "@/components/scorecard-details"
 
 interface RepoReviewPageData {
   maturityScore: number
+  scoreCompleteness: number
+  scoreStatus: string
+  scorecardVersion: string
   detectedStack: string
   missingItems: string
   risks: string
@@ -38,6 +42,7 @@ export default function RepoReviewPage() {
   const fixes = safeParse(data.recommendedFixes) as string[]
   const files = safeParse(data.importantFiles) as string[]
 
+  const hasScore = data.scoreStatus === 'scored'
   const scoreColor = data.maturityScore >= 70 ? "text-green-600" : data.maturityScore >= 40 ? "text-yellow-600" : "text-red-600"
 
   return (
@@ -46,9 +51,10 @@ export default function RepoReviewPage() {
 
       <div className="grid md:grid-cols-3 gap-4 mb-6">
         <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-lg">Maturity Score</CardTitle></CardHeader>
+          <CardHeader className="pb-2"><CardTitle className="text-lg">Deterministic criteria</CardTitle></CardHeader>
           <CardContent>
-            <p className={`text-4xl font-bold ${scoreColor}`}>{data.maturityScore}/100</p>
+            {hasScore ? <p className={`text-4xl font-bold ${scoreColor}`}>{data.maturityScore}/100</p> : <p className="text-2xl font-bold">Unknown</p>}
+            <p className="mt-2 text-xs text-muted-foreground">Evidence completeness: {Math.round(data.scoreCompleteness * 100)}% · {data.scorecardVersion || 'legacy/unversioned'}</p>
           </CardContent>
         </Card>
         <Card className="md:col-span-2">
@@ -116,6 +122,8 @@ export default function RepoReviewPage() {
           </CardContent>
         </Card>
       )}
+
+      <ScorecardDetails projectId={String(params.id)} kind="REPOSITORY_MATURITY" />
     </div>
   )
 }

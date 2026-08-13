@@ -3,9 +3,13 @@
 import { useEffect, useState } from "react"
 import { useParams } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { ScorecardDetails } from "@/components/scorecard-details"
 
 interface ReleasePageData {
   releaseScore: number
+  scoreCompleteness: number
+  scoreStatus: string
+  scorecardVersion: string
   decision: string
   releaseNotesDraft: string
   topRisks: string
@@ -39,8 +43,8 @@ export default function ReleasePage() {
   const checklist = safeParse(data.releaseChecklist) as string[]
   const fixes = safeParse(data.recommendedFixesBeforeMerge) as string[]
 
-  const decisionColor = data.decision === "go" ? "text-green-600" : data.decision === "go_with_fixes" ? "text-yellow-600" : "text-red-600"
-  const decisionLabel = data.decision === "go" ? "Go" : data.decision === "go_with_fixes" ? "Go with Fixes" : "No Go"
+  const decisionColor = data.decision === "go" ? "text-green-600" : data.decision === "go_with_fixes" ? "text-yellow-600" : "text-muted-foreground"
+  const decisionLabel = data.decision === "go" ? "Go" : data.decision === "go_with_fixes" ? "Go with Fixes" : "Unknown"
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-4xl">
@@ -48,13 +52,14 @@ export default function ReleasePage() {
 
       <div className="grid md:grid-cols-3 gap-4 mb-6">
         <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-lg">Release Score</CardTitle></CardHeader>
+          <CardHeader className="pb-2"><CardTitle className="text-lg">Deterministic criteria</CardTitle></CardHeader>
           <CardContent>
-            <p className="text-4xl font-bold">{data.releaseScore}/100</p>
+            {data.scoreStatus === 'scored' ? <p className="text-4xl font-bold">{data.releaseScore}/100</p> : <p className="text-2xl font-bold">Unknown</p>}
+            <p className="mt-2 text-xs text-muted-foreground">Evidence completeness: {Math.round(data.scoreCompleteness * 100)}% · {data.scorecardVersion || 'legacy/unversioned'}</p>
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-lg">Decision</CardTitle></CardHeader>
+          <CardHeader className="pb-2"><CardTitle className="text-lg">Deterministic status</CardTitle></CardHeader>
           <CardContent>
             <p className={`text-2xl font-bold ${decisionColor}`}>{decisionLabel}</p>
           </CardContent>
@@ -136,6 +141,8 @@ export default function ReleasePage() {
           </CardContent>
         </Card>
       )}
+
+      <ScorecardDetails projectId={String(params.id)} kind="RELEASE_READINESS" />
     </div>
   )
 }

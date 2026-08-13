@@ -32,17 +32,15 @@ export const qualityGeneratorOutputSchema = z.object({
 
 export const criterionResultSchema = z.object({
   criterion: z.string(),
-  passed: z.boolean(),
+  status: z.literal('UNKNOWN'),
   detail: z.string(),
 })
 
 export const qualityEvaluatorOutputSchema = z.object({
-  score: z.number().int().min(0).max(100),
-  passed: z.boolean(),
-  criticalFailure: z.boolean(),
   criterionResults: z.array(criterionResultSchema),
   summary: z.string(),
   reworkFeedback: z.string().optional(),
+  reviewRequired: z.literal(true),
 })
 
 export type QualityUnit = z.infer<typeof qualityUnitSchema>

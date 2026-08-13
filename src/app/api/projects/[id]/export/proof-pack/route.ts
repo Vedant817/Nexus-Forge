@@ -2,12 +2,27 @@ import { NextResponse } from 'next/server'
 import prisma from '@/lib/db/prisma'
 import { exportProofPackMarkdown } from '@/lib/export/markdown'
 import { logAudit } from '@/lib/security/audit-log'
+import { requireProjectAccess } from '@/lib/auth/authorization'
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
+  const access = await requireProjectAccess(request.headers, id)
+  if (!access.ok) return access.response
+
   try {
-    const proof = await prisma.proofPack.findUnique({ where: { projectId: id } })
+    const [proof, project] = await Promise.all([
+      prisma.proofPack.findUnique({ where: { projectId: id } }),
+      prisma.project.findUnique({ where: { id, ownerId: access.value.user.id }, select: { activeAnalysisRunId: true } }),
+    ])
     if (!proof) return NextResponse.json({ error: 'No proof pack found' }, { status: 404 })
+    const scorecard = project?.activeAnalysisRunId ? await prisma.scorecard.findUnique({
+      where: { analysisRunId_kind_version: {
+        analysisRunId: project.activeAnalysisRunId,
+        kind: 'PROOF_COMPLETENESS',
+        version: proof.scorecardVersion,
+      } },
+      include: { criterionResults: { include: { evidenceLinks: { include: { evidenceRecord: { select: { stableEvidenceId: true } } } } } } },
+    }) : null
 
     const output = exportProofPackMarkdown({
       portfolioSummary: proof.portfolioSummary,
@@ -15,9 +30,15 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       demoVideoScript: proof.demoVideoScript,
       interviewExplanation: proof.interviewExplanation,
       linkedinPost: proof.linkedinPost,
-      proofScore: proof.proofScore,
       missingProofItems: JSON.parse(proof.missingProofItems),
-    })
+    }, scorecard ? {
+      score: scorecard.score,
+      completenessRatio: scorecard.completenessRatio,
+      version: scorecard.version,
+      evidenceIds: [...new Set(scorecard.criterionResults.flatMap((result) =>
+        result.evidenceLinks.map((link) => link.evidenceRecord.stableEvidenceId),
+      ))],
+    } : undefined)
 
     await logAudit('export_generated', 'Proof pack markdown exported', id)
 
