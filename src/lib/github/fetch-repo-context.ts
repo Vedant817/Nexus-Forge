@@ -1,5 +1,4 @@
 import { parseGitHubRepoUrl, parseGitHubPrUrl } from '../security/url-safety'
-import config from '../config/env'
 
 interface GithubRepoResponse {
   name: string
@@ -39,21 +38,20 @@ interface GithubPRResponse {
 }
 
 const GITHUB_API = 'https://api.github.com'
-const GITHUB_RAW = 'https://raw.githubusercontent.com'
 
-async function githubFetch(path: string, options?: { timeout?: number }): Promise<Response> {
+type GitHubFetchOptions = { timeout?: number; signal?: AbortSignal }
+
+async function githubFetch(path: string, options: GitHubFetchOptions = {}): Promise<Response> {
   const headers: Record<string, string> = {
     Accept: 'application/vnd.github.v3+json',
-    'User-Agent': 'hermes-forge/1.0',
-  }
-  if (config.GITHUB_TOKEN) {
-    headers.Authorization = `Bearer ${config.GITHUB_TOKEN}`
+    'User-Agent': 'nexus-forge/1.0',
   }
   const controller = new AbortController()
   const timeout = options?.timeout ?? 15_000
   const timer = setTimeout(() => controller.abort(), timeout)
   try {
-    const res = await fetch(`${GITHUB_API}${path}`, { headers, signal: controller.signal })
+    const signal = options.signal ? AbortSignal.any([controller.signal, options.signal]) : controller.signal
+    const res = await fetch(`${GITHUB_API}${path}`, { headers, signal })
     if (res.status === 403) {
       const resetTime = res.headers.get('X-RateLimit-Reset')
       throw new Error(`GitHub API rate limit hit. Resets at ${resetTime ? new Date(parseInt(resetTime) * 1000).toISOString() : 'unknown'}`)
@@ -85,37 +83,44 @@ export interface RepoContext {
   dockerCompose?: string
   githubWorkflows: string[]
   envExample?: string
+  commitSha?: string
+  complete?: boolean
+  diagnostics?: string[]
 }
 
-export async function fetchRepoContext(url: string): Promise<RepoContext> {
+export async function fetchRepoContext(url: string, options: GitHubFetchOptions = {}): Promise<RepoContext> {
   const parsed = parseGitHubRepoUrl(url)
   if (!parsed.ok) throw new Error(parsed.error)
 
   const { owner, repo } = parsed.data
 
-  const repoRes = await githubFetch(`/repos/${owner}/${repo}`)
+  const repoRes = await githubFetch(`/repos/${owner}/${repo}`, options)
   const repoData = await repoRes.json() as GithubRepoResponse
 
-  const contentsRes = await githubFetch(`/repos/${owner}/${repo}/contents/`)
+  const contentsRes = await githubFetch(`/repos/${owner}/${repo}/contents/`, options)
   const contents = await contentsRes.json() as GithubContentItem[]
 
   const tree: string[] = contents.map((item: GithubContentItem) => item.name)
 
   let readme = ''
   try {
-    const readmeRes = await githubFetch(`/repos/${owner}/${repo}/readme`)
+    const readmeRes = await githubFetch(`/repos/${owner}/${repo}/readme`, options)
     const readmeData = await readmeRes.json() as GithubReadmeResponse
     readme = Buffer.from(readmeData.content, 'base64').toString('utf-8')
-  } catch { }
+  } catch (error) {
+    if (options.signal?.aborted) throw error
+  }
 
   async function fetchFile(path: string): Promise<string | undefined> {
     try {
-      const res = await githubFetch(`/repos/${owner}/${repo}/contents/${path}`)
+      const res = await githubFetch(`/repos/${owner}/${repo}/contents/${path}`, options)
       const data = await res.json() as { content?: string, encoding?: string }
       if (data.content && data.encoding === 'base64') {
         return Buffer.from(data.content, 'base64').toString('utf-8')
       }
-    } catch { }
+    } catch (error) {
+      if (options.signal?.aborted) throw error
+    }
     return undefined
   }
 
@@ -125,12 +130,14 @@ export async function fetchRepoContext(url: string): Promise<RepoContext> {
 
   let githubWorkflows: string[] = []
   try {
-    const workflowsRes = await githubFetch(`/repos/${owner}/${repo}/contents/.github/workflows`)
+    const workflowsRes = await githubFetch(`/repos/${owner}/${repo}/contents/.github/workflows`, options)
     const workflows = await workflowsRes.json() as GithubWorkflowItem[]
     if (Array.isArray(workflows)) {
       githubWorkflows = workflows.map((w: GithubWorkflowItem) => w.name)
     }
-  } catch { }
+  } catch (error) {
+    if (options.signal?.aborted) throw error
+  }
 
   return {
     name: repoData.name,
@@ -157,18 +164,27 @@ export interface PRContext {
   diff: string
   additions: number
   deletions: number
+  headSha?: string
+  baseSha?: string
+  mergedCommitSha?: string | null
+  fileListComplete?: boolean
+  reviewsComplete?: boolean
+  checksComplete?: boolean
+  reviews?: Array<{ id: string; state: string; submittedAt: string | null }>
+  checks?: Array<{ id: string; name: string; status: string; conclusion: string | null }>
+  diagnostics?: string[]
 }
 
-export async function fetchPRContext(url: string): Promise<PRContext> {
+export async function fetchPRContext(url: string, options: GitHubFetchOptions = {}): Promise<PRContext> {
   const parsed = parseGitHubPrUrl(url)
   if (!parsed.ok) throw new Error(parsed.error)
 
   const { owner, repo, pullNumber } = parsed.data
 
-  const prRes = await githubFetch(`/repos/${owner}/${repo}/pulls/${pullNumber}`)
+  const prRes = await githubFetch(`/repos/${owner}/${repo}/pulls/${pullNumber}`, options)
   const prData = await prRes.json() as GithubPRResponse
 
-  const filesRes = await githubFetch(`/repos/${owner}/${repo}/pulls/${pullNumber}/files`)
+  const filesRes = await githubFetch(`/repos/${owner}/${repo}/pulls/${pullNumber}/files`, options)
   const files = await filesRes.json() as GithubFileItem[]
 
   const changedFiles = files.map((f: GithubFileItem) => f.filename)

@@ -2,10 +2,13 @@ import { NextResponse } from 'next/server'
 import { fetchRepoContext } from '@/lib/github'
 import { githubRepoUrlSchema } from '@/lib/security/validation'
 import { checkRateLimit } from '@/lib/security/rate-limit'
+import { requireSession } from '@/lib/auth/authorization'
 
 export async function POST(request: Request) {
-  const ip = request.headers.get('x-forwarded-for') || 'anonymous'
-  const rateCheck = await checkRateLimit(`github:${ip}`, { windowMs: 60000, maxRequests: 30 })
+  const session = await requireSession(request.headers)
+  if (!session.ok) return session.response
+
+  const rateCheck = await checkRateLimit(`github:user:${session.value.id}`, { windowMs: 60000, maxRequests: 30 })
   if (!rateCheck.allowed) {
     return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429 })
   }
