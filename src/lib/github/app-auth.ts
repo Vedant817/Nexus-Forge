@@ -46,6 +46,10 @@ export async function createInstallationToken(input: {
   signal?: AbortSignal
   forceRefresh?: boolean
 }): Promise<InstallationToken> {
+  const repositoryId = Number(input.repositoryId)
+  if (!Number.isSafeInteger(repositoryId) || repositoryId <= 0 || String(repositoryId) !== input.repositoryId) {
+    throw new Error('GitHub repository ID is outside the supported safe-integer range.')
+  }
   const key = `${input.installationId}:${input.repositoryId}:contents,pull_requests,checks`
   const cached = tokenCache.get(key)
   if (!input.forceRefresh && cached && cached.expiresAt.getTime() - Date.now() > 5 * 60_000) return cached
@@ -61,7 +65,7 @@ export async function createInstallationToken(input: {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      repository_ids: [Number(input.repositoryId)],
+      repository_ids: [repositoryId],
       permissions: { contents: 'read', pull_requests: 'read', checks: 'read' },
     }),
   })

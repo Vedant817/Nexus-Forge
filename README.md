@@ -41,7 +41,7 @@ and include its commit SHA when known, source reference, observation time, colle
 - Portfolio and social copy is a draft requiring review; generated prose is never promoted to verified evidence.
 - Web quality orchestration is patch-proposal-only. Deterministic checks require the dedicated [disposable worktree/container sandbox](docs/operations/quality-sandbox.md) and human patch review.
 - GitHub App collection pins repository snapshots and PR checks/reviews to immutable SHAs, but REST hard caps (50,000 collected tree entries, 3,000 PR files, 1,000 recent check suites, and 100 MiB Git blob support) are surfaced as incomplete evidence rather than silently ignored.
-- Connecting a repository uses an authenticated, same-origin reconciliation POST that validates installation-token access to the numeric repository ID; organization policy still determines who may install the GitHub App.
+- Connecting a repository uses signed single-use state bound to the exact session/project, cross-checks the GitHub user's installation authority through the same GitHub App, requires repository administrator permission, and validates a fresh repository-scoped installation token before binding. Organization policy still determines who may approve the App installation.
 
 ## Tech stack
 

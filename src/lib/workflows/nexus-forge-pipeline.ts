@@ -395,7 +395,7 @@ export async function executeAnalysisJob(job: ClaimedJob, leaseSignal: AbortSign
   if (!run) throw new Error('Persisted analysis job relationships are invalid.')
   const projectBinding = await prisma.project.findFirst({
     where: { id: job.projectId, ownerId: job.ownerId },
-    select: { githubRepositoryFullName: true },
+    select: { githubRepositoryFullName: true, githubRepositoryId: true, githubInstallationId: true, githubBindingStatus: true },
   })
   if (!projectBinding) throw new Error('Persisted analysis project relationship is invalid.')
   // Publication and job completion are separate fenced transitions. A crash between
@@ -403,6 +403,22 @@ export async function executeAnalysisJob(job: ClaimedJob, leaseSignal: AbortSign
   if (run.status === 'SUCCEEDED') return { projectId: job.projectId }
   const snapshot = runSnapshotSchema.parse(run.inputSnapshot)
   if (contentHash(snapshot) !== run.inputHash) throw new Error('Analysis snapshot integrity validation failed.')
+  const assertCurrentGitHubBinding = async () => {
+    if (!snapshot.project.githubInstallationId && !snapshot.project.githubRepositoryId) return
+    const current = await prisma.project.findFirst({
+      where: { id: job.projectId, ownerId: job.ownerId },
+      select: { githubRepositoryFullName: true, githubRepositoryId: true, githubInstallationId: true, githubBindingStatus: true },
+    })
+    if (
+      !current
+      || current.githubBindingStatus !== 'active'
+      || current.githubInstallationId !== snapshot.project.githubInstallationId
+      || current.githubRepositoryId !== snapshot.project.githubRepositoryId
+      || current.githubRepositoryFullName !== snapshot.project.githubRepositoryFullName
+    ) {
+      throw new Error('GitHub App binding changed or lost authority after this run was queued.')
+    }
+  }
   const executionVersion = resolveExecutionVersion(run)
 
   await assertExecutionAllowed(job, leaseSignal)
@@ -489,6 +505,7 @@ export async function executeAnalysisJob(job: ClaimedJob, leaseSignal: AbortSign
           await assertExecutionAllowed(job, signal)
           let repoContext
           if (snapshot.project.githubBindingStatus === 'active' && snapshot.project.githubInstallationId && snapshot.project.githubRepositoryId) {
+            await assertCurrentGitHubBinding()
             const collected = await collectRepositorySnapshot({
               installationId: snapshot.project.githubInstallationId,
               repositoryId: snapshot.project.githubRepositoryId,
@@ -497,6 +514,7 @@ export async function executeAnalysisJob(job: ClaimedJob, leaseSignal: AbortSign
               signal,
             })
             await assertExecutionAllowed(job, signal)
+            await assertCurrentGitHubBinding()
             if (!run.commitSha) {
               await persistRepositorySnapshot({
                 projectId: job.projectId,
@@ -508,9 +526,13 @@ export async function executeAnalysisJob(job: ClaimedJob, leaseSignal: AbortSign
             }
             repoContext = repositoryContextFromSnapshot(collected)
           } else {
+            if (snapshot.project.githubInstallationId || snapshot.project.githubRepositoryId) {
+              throw new Error('Inactive GitHub App bindings cannot fall back to unauthenticated repository collection.')
+            }
             repoContext = await fetchRepoContext(snapshot.project.repoUrl, { signal })
           }
           await assertExecutionAllowed(job, signal)
+          if (snapshot.project.githubInstallationId || snapshot.project.githubRepositoryId) await assertCurrentGitHubBinding()
           const explanation = await runner.runRepoContextAgent({
             repoUrl: snapshot.project.repoUrl,
             readme: repoContext.readme,
@@ -567,6 +589,7 @@ export async function executeAnalysisJob(job: ClaimedJob, leaseSignal: AbortSign
         metadata: stageMetadata(AnalysisStageName.RELEASE),
         run: async () => {
           await assertExecutionAllowed(job, signal)
+          if (snapshot.project.githubInstallationId || snapshot.project.githubRepositoryId) await assertCurrentGitHubBinding()
           const pr = snapshot.project.githubBindingStatus === 'active' && snapshot.project.githubInstallationId && snapshot.project.githubRepositoryId && snapshot.project.githubRepositoryFullName
             ? await collectPullRequestContext({
                 url: snapshot.project.prUrl,
@@ -577,6 +600,7 @@ export async function executeAnalysisJob(job: ClaimedJob, leaseSignal: AbortSign
               })
             : await fetchPRContext(snapshot.project.prUrl, { signal })
           await assertExecutionAllowed(job, signal)
+          if (snapshot.project.githubInstallationId || snapshot.project.githubRepositoryId) await assertCurrentGitHubBinding()
           const explanation = await runner.runReleaseReadiness({
             prUrl: snapshot.project.prUrl,
             prDiff: pr.diff,

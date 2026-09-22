@@ -65,22 +65,35 @@ export async function POST(request: Request) {
       : githubInstallationRepositoriesWebhookSchema.safeParse(json)
     if (!lifecycle.success) return NextResponse.json({ error: 'Invalid GitHub lifecycle payload' }, { status: 400 })
     const installationId = String(lifecycle.data.installation.id)
+    const observedAt = new Date()
     try {
       await prisma.$transaction(async (tx) => {
+        await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${installationId}, 0))`
         const safeLifecyclePayload = JSON.parse(JSON.stringify(redactStructuredValue(lifecycle.data)))
         await tx.gitHubLifecycleDelivery.create({
           data: { deliveryId, event, action: lifecycle.data.action, installationId, payloadSha256, payload: safeLifecyclePayload },
         })
+        await tx.gitHubInstallationLifecycle.upsert({
+          where: { installationId },
+          create: { installationId, status: lifecycle.data.action, deliveryId, observedAt },
+          update: { status: lifecycle.data.action, deliveryId, observedAt, revision: { increment: 1 } },
+        })
         if (event === 'installation' && ['deleted', 'suspend'].includes(lifecycle.data.action)) {
           await tx.project.updateMany({ where: { githubInstallationId: installationId }, data: { githubBindingStatus: lifecycle.data.action, githubBindingDisabledAt: new Date() } })
-        } else if (event === 'installation' && lifecycle.data.action === 'unsuspend') {
-          await tx.project.updateMany({ where: { githubInstallationId: installationId }, data: { githubBindingStatus: 'active', githubBindingDisabledAt: null } })
+        } else if (event === 'installation') {
+          await tx.project.updateMany({ where: { githubInstallationId: installationId }, data: { githubBindingStatus: 'reconciliation_required', githubBindingDisabledAt: new Date() } })
         } else if (event === 'installation_repositories' && lifecycle.data.action === 'removed') {
           const removedIds = lifecycle.data.repositories_removed.map((repository) => String(repository.id))
-          if (removedIds.length) await tx.project.updateMany({ where: { githubInstallationId: installationId, githubRepositoryId: { in: removedIds } }, data: { githubBindingStatus: 'removed', githubBindingDisabledAt: new Date() } })
+          if (removedIds.length) {
+            await tx.project.updateMany({ where: { githubInstallationId: installationId, githubRepositoryId: { in: removedIds } }, data: { githubBindingStatus: 'removed', githubBindingDisabledAt: new Date() } })
+          } else {
+            await tx.project.updateMany({ where: { githubInstallationId: installationId }, data: { githubBindingStatus: 'reconciliation_required', githubBindingDisabledAt: new Date() } })
+          }
+        } else if (event === 'installation_repositories') {
+          await tx.project.updateMany({ where: { githubInstallationId: installationId }, data: { githubBindingStatus: 'reconciliation_required', githubBindingDisabledAt: new Date() } })
         }
       })
-      if (event === 'installation' && ['deleted', 'suspend'].includes(lifecycle.data.action)) invalidateInstallationTokens(installationId)
+      invalidateInstallationTokens(installationId)
       return NextResponse.json({ accepted: true }, { status: 202 })
     } catch (error) {
       if (isUniqueConstraintError(error)) return NextResponse.json({ accepted: true, replay: true }, { status: 202 })
@@ -94,7 +107,7 @@ export async function POST(request: Request) {
   const installationId = String(payload.installation.id)
   const repositoryId = String(payload.repository.id)
   const project = await prisma.project.findFirst({
-    where: { githubInstallationId: installationId, githubRepositoryId: repositoryId },
+    where: { githubInstallationId: installationId, githubRepositoryId: repositoryId, githubBindingStatus: 'active' },
     select: { id: true, ownerId: true },
   })
   if (!project?.ownerId) {

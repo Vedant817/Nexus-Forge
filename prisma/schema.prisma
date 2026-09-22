@@ -91,6 +91,15 @@ model Project {
   githubInstallationId     String?
   githubBindingStatus      String    @default("unbound")
   githubBindingDisabledAt  DateTime?
+  githubInstallationAccountId             String?
+  githubInstallationAccountLogin          String?
+  githubInstallationAccountType           String?
+  githubInstallationRepositorySelection   String?
+  githubInstallationPermissions           Json?
+  githubAuthorizedByGithubUserId           String?
+  githubAuthorizedByUserId                 String?
+  githubBindingLastReconciledAt            DateTime?
+  githubBindingReconciliationError         String?
   status                   String    @default("idle")
   activeAnalysisRunId      String?   @unique
   createdAt                DateTime  @default(now())
@@ -112,6 +121,8 @@ model Project {
   evidenceRecords     EvidenceRecord[]
   scorecards          Scorecard[]
   repositorySnapshots RepositorySnapshot[]
+  githubOnboardingStates GitHubOnboardingState[]
+  repositoryPermissionSnapshots RepositoryPermissionSnapshot[]
 
   @@unique([githubInstallationId, githubRepositoryFullName])
   @@unique([githubInstallationId, githubRepositoryId])
@@ -183,6 +194,7 @@ model User {
   aiUsageEvents AiUsageEvent[]
   analysisRuns  AnalysisRun[]
   jobs          Job[]
+  githubOnboardingStates GitHubOnboardingState[]
 
   @@unique([email])
   @@map("user")
@@ -199,6 +211,7 @@ model Session {
   userId    String
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  githubOnboardingStates GitHubOnboardingState[]
 
   @@index([userId])
   @@map("session")
@@ -223,6 +236,63 @@ model Account {
 
   @@index([userId])
   @@map("account")
+}
+
+model GitHubOnboardingState {
+  id                       String   @id
+  tokenHash                String   @unique
+  projectId                String
+  userId                   String
+  sessionId                String
+  status                   String   @default("PENDING")
+  expiresAt                DateTime
+  installationId           String?
+  installationAccountId    String?
+  installationAccountLogin String?
+  installationAccountType  String?
+  repositorySelection      String?
+  installationPermissions  Json?
+  githubUserId             String?
+  callbackVerifiedAt       DateTime?
+  consumedAt               DateTime?
+  failureCode              String?
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, status, expiresAt])
+  @@index([userId, sessionId, status])
+}
+
+model RepositoryPermissionSnapshot {
+  id                      String   @id @default(cuid())
+  projectId               String
+  installationId          String
+  repositoryId            String
+  repositoryFullName      String
+  installationPermissions Json
+  userRepositoryPermissions Json
+  repositorySelection     String
+  observedAt              DateTime
+  source                  String
+  createdAt               DateTime @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, observedAt])
+  @@index([installationId, repositoryId, observedAt])
+}
+
+model GitHubInstallationLifecycle {
+  installationId String   @id
+  status         String
+  deliveryId     String
+  revision       Int      @default(1)
+  observedAt     DateTime
+  updatedAt      DateTime @updatedAt
 }
 
 model Verification {

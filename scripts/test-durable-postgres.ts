@@ -74,8 +74,22 @@ async function main(): Promise<void> {
     assert(names.includes('20260812090000_durable_analysis_execution'), 'durable migration was applied in order')
     assert(names.includes('20260812160000_evidence_scorecards'), 'evidence scorecard migration was applied in order')
     assert(names.includes('20260812123000_llm_boundary_telemetry'), 'LLM telemetry migration was applied in order')
+    assert(names.includes('20260922190000_github_authority_safe_onboarding'), 'GitHub authority-safe onboarding migration was applied in order')
 
     const ownerId = await createUser(client)
+
+    const onboardingProject = await createProject(client, ownerId)
+    const onboardingSession = `session-${randomUUID()}`
+    await client.query('INSERT INTO "session" ("id","expiresAt","token","createdAt","updatedAt","userId") VALUES ($1,NOW()+INTERVAL \'1 hour\',$2,NOW(),NOW(),$3)', [onboardingSession, randomUUID(), ownerId])
+    const onboardingState = `state-${randomUUID()}`
+    await client.query('INSERT INTO "GitHubOnboardingState" ("id","tokenHash","projectId","userId","sessionId","status","expiresAt","createdAt","updatedAt") VALUES ($1,$2,$3,$4,$5,\'CALLBACK_VERIFIED\',NOW()+INTERVAL \'15 minutes\',NOW(),NOW())', [onboardingState, randomUUID(), onboardingProject, ownerId, onboardingSession])
+    const consume = () => pool.query('UPDATE "GitHubOnboardingState" SET "status"=\'CONSUMED\',"consumedAt"=NOW(),"updatedAt"=NOW() WHERE "id"=$1 AND "status"=\'CALLBACK_VERIFIED\' RETURNING "id"', [onboardingState])
+    const [firstConsume, secondConsume] = await Promise.all([consume(), consume()])
+    assert(firstConsume.rowCount! + secondConsume.rowCount! === 1, 'GitHub onboarding state is consumed exactly once under concurrency')
+    await client.query('INSERT INTO "RepositoryPermissionSnapshot" ("id","projectId","installationId","repositoryId","repositoryFullName","installationPermissions","userRepositoryPermissions","repositorySelection","observedAt","source","createdAt") VALUES ($1,$2,\'42\',\'100\',\'octo-org/repo\',\'{}\'::jsonb,\'{"admin":true}\'::jsonb,\'selected\',NOW(),\'integration\',NOW())', [`permission-${randomUUID()}`, onboardingProject])
+    await client.query('DELETE FROM "Project" WHERE "id"=$1', [onboardingProject])
+    const permissionRows = await client.query('SELECT COUNT(*)::int AS count FROM "RepositoryPermissionSnapshot" WHERE "projectId"=$1', [onboardingProject])
+    assert(permissionRows.rows[0].count === 0, 'permission snapshots cascade when a project is deleted')
 
     const uniqueProject = await createProject(client, ownerId)
     const firstRun = await createRun(client, uniqueProject, ownerId)

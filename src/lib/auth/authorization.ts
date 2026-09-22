@@ -7,6 +7,7 @@ export type AuthenticatedUser = {
   id: string
   name: string
   email: string
+  sessionId: string
 }
 
 type Authorized<T> = { ok: true; value: T }
@@ -29,6 +30,7 @@ export async function requireSession(headers: Headers): Promise<AuthorizationRes
       id: session.user.id,
       name: session.user.name,
       email: session.user.email,
+      sessionId: session.session.id,
     },
   }
 }

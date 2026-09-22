@@ -1,12 +1,13 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { Suspense, useEffect, useState } from "react"
 import { useParams, notFound as nextNotFound } from "next/navigation"
 import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { ErrorBoundary } from "@/components/ErrorBoundary"
+import { GitHubConnectionCard } from "@/components/github-connection-card"
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts"
 
 interface AnalysisRunView {
@@ -25,6 +26,11 @@ interface ProjectDetail {
   repoUrl: string
   prUrl: string
   status: string
+  githubRepositoryFullName?: string | null
+  githubBindingStatus: string
+  githubInstallationAccountLogin?: string | null
+  githubInstallationAccountType?: string | null
+  githubBindingLastReconciledAt?: string | null
   sources: { id: string; type: string; title: string }[]
   knowledge: Record<string, unknown> | null
   repoAnalysis: Record<string, unknown> | null
@@ -215,6 +221,17 @@ export default function ProjectPage() {
             </CardContent>
           </Card>
         )}
+
+        <Suspense fallback={null}>
+          <GitHubConnectionCard
+            projectId={project.id}
+            status={project.githubBindingStatus}
+            repositoryFullName={project.githubRepositoryFullName}
+            installationAccountLogin={project.githubInstallationAccountLogin}
+            installationAccountType={project.githubInstallationAccountType}
+            lastReconciledAt={project.githubBindingLastReconciledAt}
+          />
+        </Suspense>
 
         <div className="grid md:grid-cols-3 gap-4 mb-8">
           {sections.map(s => (

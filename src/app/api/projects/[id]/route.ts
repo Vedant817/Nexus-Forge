@@ -51,7 +51,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
     const current = await prisma.project.findUnique({
       where: { id },
-      select: { repoUrl: true, prUrl: true },
+      select: { repoUrl: true, prUrl: true, githubBindingStatus: true, githubRepositoryFullName: true },
     })
     if (!current) return NextResponse.json({ error: 'Project not found' }, { status: 404 })
 
@@ -60,6 +60,13 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       parsed.data.prUrl ?? current.prUrl,
     )
     if (!identity.ok) return NextResponse.json({ error: identity.error }, { status: 400 })
+    if (
+      current.githubBindingStatus === 'active'
+      && current.githubRepositoryFullName
+      && identity.fullName !== current.githubRepositoryFullName
+    ) {
+      return NextResponse.json({ error: 'Disconnect or change the verified GitHub App connection before changing repository identity.' }, { status: 409 })
+    }
 
     const project = await prisma.project.update({
       where: { id, ownerId: access.value.user.id },

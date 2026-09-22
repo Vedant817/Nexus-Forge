@@ -5,6 +5,10 @@ const mocks = vi.hoisted(() => ({
   findProject: vi.fn(),
   createDelivery: vi.fn(),
   createJob: vi.fn(),
+  createLifecycleDelivery: vi.fn(),
+  upsertLifecycle: vi.fn(),
+  updateProjects: vi.fn(),
+  advisoryLock: vi.fn(),
   transaction: vi.fn(),
 }))
 
@@ -68,7 +72,11 @@ describe('GitHub webhook receiver', () => {
     mocks.createJob.mockResolvedValue({ id: 'job-1' })
     mocks.transaction.mockImplementation(async (callback: (tx: unknown) => unknown) => callback({
       webhookDelivery: { create: mocks.createDelivery },
+      gitHubLifecycleDelivery: { create: mocks.createLifecycleDelivery },
+      gitHubInstallationLifecycle: { upsert: mocks.upsertLifecycle },
+      project: { updateMany: mocks.updateProjects },
       job: { create: mocks.createJob },
+      $queryRaw: mocks.advisoryLock,
     }))
   })
 
@@ -86,6 +94,7 @@ describe('GitHub webhook receiver', () => {
       where: {
         githubInstallationId: '42',
         githubRepositoryId: '7',
+        githubBindingStatus: 'active',
       },
       select: { id: true, ownerId: true },
     })
@@ -174,5 +183,28 @@ describe('GitHub webhook receiver', () => {
 
     expect(response.status).toBe(413)
     expect(mocks.findProject).not.toHaveBeenCalled()
+  })
+
+  it('serializes and durably records installation revocation before disabling bindings', async () => {
+    const lifecyclePayload = { action: 'suspend', installation: { id: 42 } }
+    const response = await POST(signedRequest(JSON.stringify(lifecyclePayload), {
+      'x-github-event': 'installation',
+      'x-github-delivery': 'delivery-suspend',
+    }))
+
+    expect(response.status).toBe(202)
+    expect(mocks.advisoryLock).toHaveBeenCalledOnce()
+    expect(mocks.createLifecycleDelivery).toHaveBeenCalledWith({
+      data: expect.objectContaining({ deliveryId: 'delivery-suspend', installationId: '42', action: 'suspend' }),
+    })
+    expect(mocks.upsertLifecycle).toHaveBeenCalledWith({
+      where: { installationId: '42' },
+      create: expect.objectContaining({ installationId: '42', status: 'suspend', deliveryId: 'delivery-suspend' }),
+      update: expect.objectContaining({ status: 'suspend', deliveryId: 'delivery-suspend', revision: { increment: 1 } }),
+    })
+    expect(mocks.updateProjects).toHaveBeenCalledWith({
+      where: { githubInstallationId: '42' },
+      data: { githubBindingStatus: 'suspend', githubBindingDisabledAt: expect.any(Date) },
+    })
   })
 })
