@@ -9,8 +9,14 @@ export const createProjectSchema = z.object({
   prUrl: z.string().max(500, 'URL too long').default(''),
 })
 
+export const projectPathExclusionSchema = z.string().min(1).max(300).refine(
+  (value) => !value.startsWith('/') && !value.includes('\0') && !value.split('/').includes('..'),
+  'Exclusion paths must be relative paths without parent traversal.',
+)
+
 export const updateProjectSchema = z.object({
   expectedRevision: z.number().int().nonnegative(),
+  excludedPaths: z.array(projectPathExclusionSchema).max(100).optional(),
   name: z.string().min(1).max(100).optional(),
   goal: z.string().max(5000).optional(),
   repoUrl: z.string().max(500).optional(),

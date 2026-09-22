@@ -49,6 +49,15 @@ export function isHighRiskPath(path: string): boolean {
   return HIGH_RISK_PATH_PATTERNS.some((pattern) => pattern.test(normalized))
 }
 
+export function isExcludedPath(path: string, excludedPaths: string[] = []): boolean {
+  const normalized = path.replace(/\\/g, '/').replace(/^\.\//, '')
+  return excludedPaths.some((exclusion) => {
+    const clean = exclusion.trim().replace(/^\.\//, '').replace(/\/+$/, '')
+    if (!clean) return false
+    return normalized === clean || normalized.startsWith(`${clean}/`)
+  })
+}
+
 export function shannonEntropy(value: string): number {
   if (!value) return 0
   const counts = new Map<string, number>()

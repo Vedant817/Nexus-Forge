@@ -32,11 +32,13 @@ export async function publishDeterministicBaseline(job: ClaimedJob, signal: Abor
   let dependencyMap: ReturnType<typeof buildDependencyMap> | undefined
 
   if (snapshot.project.repoUrl && bindingActive) {
+    const excludedPaths = Array.isArray((project as { excludedPaths?: unknown }).excludedPaths) ? (project as { excludedPaths: string[] }).excludedPaths : []
     const collected = await collectRepositorySnapshot({
       installationId: snapshot.project.githubInstallationId!,
       repositoryId: snapshot.project.githubRepositoryId!,
       expectedFullName: snapshot.project.githubRepositoryFullName ?? undefined,
       pinnedCommitSha: run.commitSha ?? undefined,
+      excludedPaths,
       signal,
     })
     await persistRepositorySnapshot({

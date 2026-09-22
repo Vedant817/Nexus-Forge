@@ -109,6 +109,7 @@ model Project {
   ingestionSuspendReason               String?
   inferenceSuspendedAt                 DateTime?
   inferenceSuspendReason               String?
+  excludedPaths                  Json     @default("[]")
   editRevision               Int       @default(0)
   status                   String    @default("idle")
   activeAnalysisRunId      String?   @unique

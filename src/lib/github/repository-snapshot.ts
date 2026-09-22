@@ -4,7 +4,7 @@ import type { Prisma } from '@prisma/client'
 import prisma from '@/lib/db/prisma'
 import { contentHash } from '@/lib/execution/hash'
 import { redactSecrets } from '@/lib/security/secret-redaction'
-import { hasBlockingFinding, isHighRiskPath, scanSecretContent, SECRET_SCANNER_VERSION } from '@/lib/security/secret-scanner'
+import { hasBlockingFinding, isExcludedPath, isHighRiskPath, scanSecretContent, SECRET_SCANNER_VERSION } from '@/lib/security/secret-scanner'
 import { createInstallationToken } from './app-auth'
 import { githubJson } from './http'
 
@@ -84,6 +84,7 @@ export async function collectRepositorySnapshot(input: {
   expectedFullName?: string
   ref?: string
   pinnedCommitSha?: string
+  excludedPaths?: string[]
   signal?: AbortSignal
 }): Promise<CollectedRepositorySnapshot> {
   const { token } = await createInstallationToken(input)
@@ -112,6 +113,7 @@ export async function collectRepositorySnapshot(input: {
     }
     const size = entry.size
     if (entry.mode === '120000') { files.push({ path: entry.path, mode: entry.mode, objectType: entry.type, blobSha: entry.sha, size, status: 'symlink' }); continue }
+    if (isExcludedPath(entry.path, input.excludedPaths)) { files.push({ path: entry.path, mode: entry.mode, objectType: entry.type, blobSha: entry.sha, size, status: 'excluded_by_policy' }); continue }
     if (isHighRiskPath(entry.path)) { tree.complete = false; files.push({ path: entry.path, mode: entry.mode, objectType: entry.type, blobSha: entry.sha, size, status: 'excluded_high_risk', diagnostic: `Excluded by ${SECRET_SCANNER_VERSION} path policy.` }); continue }
     const eligible = SOURCE_EXTENSIONS.test(entry.path) || IMPORTANT_NAMES.test(entry.path)
     if (!eligible) { files.push({ path: entry.path, mode: entry.mode, objectType: entry.type, blobSha: entry.sha, size, status: 'not_collected' }); continue }

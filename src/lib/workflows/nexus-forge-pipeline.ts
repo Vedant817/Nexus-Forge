@@ -427,7 +427,7 @@ export async function executeAnalysisJob(job: ClaimedJob, leaseSignal: AbortSign
   verifyAdmissionManifest(run)
   const projectBinding = await prisma.project.findFirst({
     where: { id: job.projectId, ownerId: job.ownerId },
-    select: { githubRepositoryFullName: true, githubRepositoryId: true, githubInstallationId: true, githubBindingStatus: true },
+    select: { githubRepositoryFullName: true, githubRepositoryId: true, githubInstallationId: true, githubBindingStatus: true, excludedPaths: true },
   })
   if (!projectBinding) throw new Error('Persisted analysis project relationship is invalid.')
   // Publication and job completion are separate fenced transitions. A crash between
@@ -556,6 +556,7 @@ export async function executeAnalysisJob(job: ClaimedJob, leaseSignal: AbortSign
               repositoryId: snapshot.project.githubRepositoryId,
               expectedFullName: snapshot.project.githubRepositoryFullName ?? undefined,
               pinnedCommitSha: run.commitSha ?? undefined,
+              excludedPaths: Array.isArray(projectBinding?.excludedPaths) ? (projectBinding.excludedPaths as string[]) : [],
               signal,
             })
             await assertExecutionAllowed(job, signal)

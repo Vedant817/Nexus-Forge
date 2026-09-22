@@ -32,22 +32,42 @@ export default function IntakePage() {
   const [repoUrl, setRepoUrl] = useState("")
   const [prUrl, setPrUrl] = useState("")
   const [editRevision, setEditRevision] = useState(0)
+  const [excludedPaths, setExcludedPaths] = useState("")
+  const [runAcknowledged, setRunAcknowledged] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const estimatedSourceChars = sources.reduce((sum, source) => sum + (source.rawContent?.length ?? 0), 0)
 
   useEffect(() => {
     const id = params.id
     fetchApiJson<Source[]>(`/api/projects/${id}/sources`, undefined, "Unable to load sources.")
       .then(setSources)
       .catch((cause: Error) => setError(cause.message))
-    fetchApiJson<{ repoUrl?: string; prUrl?: string; editRevision?: number }>(`/api/projects/${id}`, undefined, "Unable to load project URLs.")
+    fetchApiJson<{ repoUrl?: string; prUrl?: string; editRevision?: number; excludedPaths?: string[] }>(`/api/projects/${id}`, undefined, "Unable to load project URLs.")
       .then(data => {
         setRepoUrl(data.repoUrl || "")
         setPrUrl(data.prUrl || "")
+        setExcludedPaths((data.excludedPaths ?? []).join('\n'))
         if (!Number.isSafeInteger(data.editRevision)) throw new Error("Project response did not include a valid edit revision.")
         setEditRevision(data.editRevision!)
       })
       .catch((cause: Error) => setError(cause.message))
   }, [params.id])
+
+  async function saveExclusions() {
+    setError("")
+    try {
+      const paths = excludedPaths.split('\n').map((line) => line.trim()).filter(Boolean)
+      const updated = await fetchApiJson<{ editRevision?: number }>(`/api/projects/${params.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ excludedPaths: paths, expectedRevision: editRevision }),
+      }, "Unable to save path exclusions.")
+      if (!Number.isSafeInteger(updated.editRevision)) throw new Error("Project update returned an invalid revision.")
+      setEditRevision(updated.editRevision!)
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to save path exclusions.")
+    }
+  }
 
   async function refreshSources() {
     setSources(await fetchApiJson<Source[]>(`/api/projects/${params.id}/sources`, undefined, "Unable to refresh sources."))
@@ -240,23 +260,42 @@ export default function IntakePage() {
         </Card>
       )}
 
+      <Card className="mb-6">
+        <CardHeader><CardTitle>Path exclusions and transfer estimate</CardTitle></CardHeader>
+        <CardContent className="space-y-3">
+          <Label>Excluded repository paths (one relative path per line)</Label>
+          <Textarea value={excludedPaths} onChange={e => setExcludedPaths(e.target.value)} rows={4} placeholder={"docs/drafts\nsecrets/"} onBlur={() => void saveExclusions()} />
+          <p className="text-xs text-muted-foreground">Estimate: {sources.length} source(s), ~{estimatedSourceChars.toLocaleString()} source characters. Excluded paths are skipped before collection.</p>
+        </CardContent>
+      </Card>
+
       {sources.length > 0 && (
-        <div className="flex justify-center mt-6">
-          <Button disabled={isAnalyzing} onClick={async () => {
-            setIsAnalyzing(true)
-            setError("")
-            try {
-              const run = await fetchApiJson<{ runId?: string; status?: string }>(`/api/projects/${params.id}/run-analysis`, { method: "POST" }, "Unable to start analysis.")
-              if (!run.runId || typeof run.status !== "string") throw new Error("Analysis start returned an invalid response.")
-              router.push(`/projects/${params.id}`)
-            } catch (cause) {
-              setError(cause instanceof Error ? cause.message : "Unable to start analysis.")
-              setIsAnalyzing(false)
-            }
-          }}>
-            {isAnalyzing ? "Starting Analysis..." : "Run Analysis"}
-          </Button>
-        </div>
+        <Card className="mb-6">
+          <CardHeader><CardTitle>Before you run</CardTitle></CardHeader>
+          <CardContent className="space-y-3 text-sm">
+            <p className="text-muted-foreground">Deterministic-only runs contact no model provider. If external inference is enabled, redacted excerpts go to Groq solely to generate explanations and drafts. Secret scanning cannot guarantee complete removal. The run manifest records provider and privacy decisions.</p>
+            <label className="flex items-center gap-2 text-xs">
+              <input type="checkbox" checked={runAcknowledged} onChange={e => setRunAcknowledged(e.target.checked)} />
+              I understand what data leaves the workspace and why.
+            </label>
+            <div className="flex justify-center">
+              <Button disabled={isAnalyzing || !runAcknowledged} onClick={async () => {
+                setIsAnalyzing(true)
+                setError("")
+                try {
+                  const run = await fetchApiJson<{ runId?: string; status?: string }>(`/api/projects/${params.id}/run-analysis`, { method: "POST" }, "Unable to start analysis.")
+                  if (!run.runId || typeof run.status !== "string") throw new Error("Analysis start returned an invalid response.")
+                  router.push(`/projects/${params.id}`)
+                } catch (cause) {
+                  setError(cause instanceof Error ? cause.message : "Unable to start analysis.")
+                  setIsAnalyzing(false)
+                }
+              }}>
+                {isAnalyzing ? "Starting Analysis..." : "Run Analysis"}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       )}
     </div>
   )
