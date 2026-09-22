@@ -2,8 +2,11 @@
 // enqueue prevents duplicates when a run is already active.
 import prisma from '@/lib/db/prisma'
 import { enqueueAnalysis } from '@/lib/execution/enqueue-analysis'
+import { cleanupRateLimitBuckets, reconcileOrphanedReservations } from '@/lib/execution/reconciliation'
 
 async function main(): Promise<void> {
+  await reconcileOrphanedReservations()
+  await cleanupRateLimitBuckets()
   const due = await prisma.pilotSchedule.findMany({ where: { enabled: true, nextRunAt: { lte: new Date() } }, select: { projectId: true } })
   for (const schedule of due) {
     try {
