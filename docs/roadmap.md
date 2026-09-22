@@ -1,5 +1,7 @@
 # Roadmap
 
+The detailed product, monetization, security, and user-directed orchestration roadmap is in [Commercial SaaS and User-Directed Orchestration](plans/commercial-saas-and-user-directed-orchestration.md). The items below remain the concise engineering view.
+
 ## Near term
 
 - Add commit-pinned fixture repositories for the published evaluation seed set.
