@@ -3,10 +3,16 @@ import { fetchRepoContext } from '@/lib/github'
 import { githubRepoUrlSchema } from '@/lib/security/validation'
 import { checkRateLimit } from '@/lib/security/rate-limit'
 import { requireSession } from '@/lib/auth/authorization'
+import { assertIngestionEnabled } from '@/lib/ai/data-policy'
 
 export async function POST(request: Request) {
   const session = await requireSession(request.headers)
   if (!session.ok) return session.response
+  try {
+    assertIngestionEnabled()
+  } catch {
+    return NextResponse.json({ error: 'Ingestion is temporarily disabled.' }, { status: 503 })
+  }
 
   const rateCheck = await checkRateLimit(`github:user:${session.value.id}`, { windowMs: 60000, maxRequests: 30 })
   if (!rateCheck.allowed) {

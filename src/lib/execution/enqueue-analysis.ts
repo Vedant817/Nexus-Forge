@@ -1,9 +1,12 @@
-import { JobKind } from '@prisma/client'
+import { JobKind, type Prisma } from '@prisma/client'
 import prisma from '@/lib/db/prisma'
 import config from '@/lib/config/env'
 import { redactSecrets } from '@/lib/security/secret-redaction'
 import { contentHash } from './hash'
 import { assertGroqModelAllowed } from './version-registry'
+import { isInferenceEnabled } from '@/lib/ai/inference-policy'
+import { buildAdmissionManifest, resolveProcessingMode } from '@/lib/ai/data-policy'
+import { COLLECTOR_VERSION, SCORECARD_VERSION } from '@/lib/evidence/registry'
 import {
   ANALYSIS_STAGES,
   DEFAULT_MAX_ATTEMPTS,
@@ -59,8 +62,30 @@ export async function enqueueAnalysis(projectId: string, ownerId: string): Promi
       content: redactSecrets(source.rawContent),
     })),
   }
-  assertGroqModelAllowed(config.GROQ_MODEL)
-  const modelConfig = { provider: 'groq', model: config.GROQ_MODEL }
+  if (project.ingestionSuspendedAt) throw new Error('Ingestion is suspended for this project.')
+  if (project.sources.some((source) => source.quarantineStatus === 'QUARANTINED')) {
+    throw new Error('A quarantined source must be resolved or overridden before running analysis.')
+  }
+  const processingMode = resolveProcessingMode(project, isInferenceEnabled())
+  const inferenceEnabled = processingMode === 'INFERENCE_ENABLED'
+  if (inferenceEnabled) assertGroqModelAllowed(config.GROQ_MODEL)
+  const modelConfig = inferenceEnabled ? { provider: 'groq', model: config.GROQ_MODEL } : { provider: 'none', model: 'deterministic-only' }
+  const inputHash = contentHash(inputSnapshot)
+  const { manifest, digest } = buildAdmissionManifest({
+    projectId,
+    ownerId,
+    actorId: ownerId,
+    processingMode,
+    repositoryPrivate: project.githubRepositoryPrivate ?? null,
+    repositoryFullName: project.githubRepositoryFullName,
+    repositoryId: project.githubRepositoryId,
+    installationId: project.githubInstallationId,
+    inputHash,
+    pipelineVersion: PIPELINE_VERSION,
+    collectorVersion: COLLECTOR_VERSION,
+    scorecardVersion: SCORECARD_VERSION,
+    modelConfig,
+  })
 
   try {
     const run = await prisma.$transaction(async (tx) => {
@@ -69,14 +94,18 @@ export async function enqueueAnalysis(projectId: string, ownerId: string): Promi
           projectId,
           ownerId,
           inputSnapshot,
-          inputHash: contentHash(inputSnapshot),
+          inputHash,
           pipelineVersion: PIPELINE_VERSION,
           promptVersion: PROMPT_VERSION,
-          modelConfigVersion: MODEL_CONFIG_VERSION,
+          modelConfigVersion: inferenceEnabled ? MODEL_CONFIG_VERSION : 'deterministic-v1',
           modelConfig,
-          stages: {
-            create: ANALYSIS_STAGES.map((stage, ordinal) => ({ stage, ordinal })),
-          },
+          processingMode,
+          inferenceStatus: inferenceEnabled ? 'PENDING' : 'NOT_REQUESTED',
+          admissionManifest: manifest as Prisma.InputJsonValue,
+          admissionDigest: digest,
+          stages: inferenceEnabled
+            ? { create: ANALYSIS_STAGES.map((stage, ordinal) => ({ stage, ordinal })) }
+            : undefined,
         },
         select: { id: true },
       })

@@ -12,6 +12,7 @@ export type AuditAction =
   | 'github_fetched'
   | 'agent_completed'
   | 'export_generated'
+  | 'privacy_updated'
   | 'error'
 
 export async function logAudit(action: AuditAction, details: string = '', projectId: string = ''): Promise<void> {

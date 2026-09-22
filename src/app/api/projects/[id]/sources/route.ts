@@ -3,6 +3,9 @@ import config from '@/lib/config/env'
 import prisma from '@/lib/db/prisma'
 import { createSourceSchema } from '@/lib/security/validation'
 import { checkPromptInjection } from '@/lib/security/prompt-injection-guard'
+import { hasBlockingFinding, scanSecretContent, SECRET_SCANNER_VERSION } from '@/lib/security/secret-scanner'
+import { assertIngestionEnabled } from '@/lib/ai/data-policy'
+import { redactSecrets } from '@/lib/security/secret-redaction'
 import { logAudit } from '@/lib/security/audit-log'
 import { requireProjectAccess } from '@/lib/auth/authorization'
 
@@ -45,10 +48,18 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       return NextResponse.json({ error: 'Validation failed', details: parsed.error.issues }, { status: 400 })
     }
 
+    try {
+      assertIngestionEnabled()
+    } catch {
+      return NextResponse.json({ error: 'Ingestion is temporarily disabled.' }, { status: 503 })
+    }
+    if (project.ingestionSuspendedAt) return NextResponse.json({ error: 'Ingestion is suspended for this project.' }, { status: 403 })
     const { type, title, rawContent } = parsed.data
 
     const injectionCheck = checkPromptInjection(rawContent)
     const hasSuspiciousContent = injectionCheck.suspicious
+    const findings = scanSecretContent(rawContent, title || type)
+    const quarantined = hasBlockingFinding(findings)
 
     const source = await prisma.source.create({
       data: {
@@ -57,6 +68,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         title,
         rawContent,
         documentId: `doc_${Date.now()}`,
+        quarantineStatus: quarantined ? 'QUARANTINED' : 'CLEAR',
+        quarantineReason: quarantined ? [...new Set(findings.map((finding) => finding.kind))].join(',').slice(0, 500) : null,
+        scannerVersion: SECRET_SCANNER_VERSION,
       },
     })
 
@@ -65,8 +79,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       data: { status: 'has_sources' },
     })
 
-    await logAudit('source_added', `Source added: ${type}${hasSuspiciousContent ? ' (suspicious content flagged)' : ''}`, id)
+    await logAudit('source_added', `Source added: ${redactSecrets(type)}${hasSuspiciousContent ? ' (suspicious content flagged)' : ''}${quarantined ? ' (quarantined by secret scanner)' : ''}`, id)
 
+    if (quarantined) {
+      return NextResponse.json({ ...source, quarantined: true, findingKinds: [...new Set(findings.map((finding) => finding.kind))], flagged: hasSuspiciousContent ? injectionCheck : undefined }, { status: 201 })
+    }
     return NextResponse.json({ ...source, flagged: hasSuspiciousContent ? injectionCheck : undefined }, { status: 201 })
   } catch {
     return NextResponse.json({ error: 'Failed to add source' }, { status: 500 })

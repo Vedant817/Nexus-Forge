@@ -19,6 +19,7 @@ import { persistEvidenceScorecards } from '@/lib/evidence/persistence'
 import { buildDependencyMap, type DependencyMap } from '@/lib/repository/dependency-map'
 import type { EvaluatedScorecard } from '@/lib/evidence/types'
 import { constrainWorkflowEvidenceReferences } from '@/lib/evidence/references'
+import { publishDeterministicBaseline } from '@/lib/execution/deterministic-baseline'
 import type {
   KnowledgeDistillerInput,
   KnowledgeDistillerOutput,
@@ -290,24 +291,40 @@ async function publishSuccessfulRun(input: {
       where: { analysisRunId: job.analysisRunId! },
       select: { id: true, stage: true },
     })
-    const evidence = collectRunEvidence({
-      observedAt: input.observedAt,
-      repositoryFullName: input.repositoryFullName,
-      commitSha: input.commitSha,
-      project: snapshot.project,
-      sources: snapshot.sources,
-      repositoryFacts: repo?.collectorFacts,
-      pullRequestFacts: release?.collectorFacts,
-      proofArtifactHash: contentHash(proof),
-      repositoryFiles: input.repositorySourceFiles,
-    })
-    const scorecards = await persistEvidenceScorecards(tx, {
-      projectId: job.projectId,
-      analysisRunId: job.analysisRunId!,
-      stageIds: Object.fromEntries(stageRows.map((row) => [row.stage, row.id])),
-      evidence,
-      evaluatedAt: new Date(),
-    })
+    const existingScorecards = await tx.scorecard.findMany({ where: { analysisRunId: job.analysisRunId! }, select: { kind: true } })
+    let scorecards: Record<import('@/lib/evidence/types').ScorecardKindValue, EvaluatedScorecard>
+    if (existingScorecards.length > 0) {
+      const persisted = await tx.scorecard.findMany({ where: { analysisRunId: job.analysisRunId! } })
+      const byKind = new Map(persisted.map((scorecard) => [scorecard.kind, scorecard]))
+      const toProjection = (kind: import('@/lib/evidence/types').ScorecardKindValue): EvaluatedScorecard => {
+        const row = byKind.get(kind)!
+        return { kind, version: row.version, score: row.score, completenessRatio: row.completenessRatio, completenessBasisPoints: row.completenessBasisPoints, totalWeight: row.totalWeight, knownWeight: row.knownWeight, passedWeight: row.passedWeight, applicableCount: row.applicableCount, evaluatedCount: row.evaluatedCount, passCount: row.passCount, failCount: row.failCount, unknownCount: row.unknownCount, notApplicableCount: row.notApplicableCount, results: [] }
+      }
+      scorecards = {
+        REPOSITORY_MATURITY: toProjection('REPOSITORY_MATURITY'),
+        RELEASE_READINESS: toProjection('RELEASE_READINESS'),
+        PROOF_COMPLETENESS: toProjection('PROOF_COMPLETENESS'),
+      }
+    } else {
+      const evidence = collectRunEvidence({
+        observedAt: input.observedAt,
+        repositoryFullName: input.repositoryFullName,
+        commitSha: input.commitSha,
+        project: snapshot.project,
+        sources: snapshot.sources,
+        repositoryFacts: repo?.collectorFacts,
+        pullRequestFacts: release?.collectorFacts,
+        proofArtifactHash: contentHash(proof),
+        repositoryFiles: input.repositorySourceFiles,
+      })
+      scorecards = await persistEvidenceScorecards(tx, {
+        projectId: job.projectId,
+        analysisRunId: job.analysisRunId!,
+        stageIds: Object.fromEntries(stageRows.map((row) => [row.stage, row.id])),
+        evidence,
+        evaluatedAt: new Date(),
+      })
+    }
 
     await tx.knowledgeSummary.upsert({
       where: { projectId: job.projectId },
@@ -374,6 +391,7 @@ async function publishSuccessfulRun(input: {
       where: { id: job.analysisRunId! },
       data: {
         status: 'SUCCEEDED',
+        inferenceStatus: 'SUCCEEDED',
         completedAt: new Date(),
         ledgerSealedAt: new Date(),
         failureClass: null,
@@ -460,6 +478,19 @@ export async function executeAnalysisJob(job: ClaimedJob, leaseSignal: AbortSign
   }, 1_000)
   poll.unref?.()
   const signal = AbortSignal.any([leaseSignal, cancelController.signal])
+  await assertExecutionAllowed(job, signal)
+  await publishDeterministicBaseline(job, signal)
+  const freshRun = await prisma.analysisRun.findUnique({ where: { id: job.analysisRunId! }, select: { processingMode: true, ledgerSealedAt: true } })
+  if ((freshRun?.processingMode ?? run.processingMode) === 'DETERMINISTIC_ONLY') {
+    await prisma.$transaction(async (tx) => {
+      if (!await fenceJobLease(tx, job)) throw new LeaseLostError()
+      await tx.analysisRun.update({ where: { id: job.analysisRunId! }, data: { status: 'SUCCEEDED', inferenceStatus: 'NOT_REQUESTED', completedAt: new Date(), failureClass: null, failureCode: null, failureMessage: null } })
+      const completedJob = await tx.job.updateMany({ where: { id: job.id, leaseToken: job.leaseToken, status: 'RUNNING' }, data: { status: 'SUCCEEDED', completedAt: new Date(), leaseOwner: null, leaseToken: null, leaseExpiresAt: null, heartbeatAt: null } })
+      if (completedJob.count !== 1) throw new LeaseLostError()
+    })
+    clearInterval(poll)
+    return { projectId: job.projectId }
+  }
   const runner = getAgentRunner()
   const executionHash = executionVersionHash({
     pipelineVersion: run.pipelineVersion,
@@ -667,6 +698,19 @@ export async function executeAnalysisJob(job: ClaimedJob, leaseSignal: AbortSign
       repositorySourceFiles: repositorySnapshot?.files.map((file) => ({ path: file.path, contentHash: file.contentHash! })),
     })
     return { projectId: job.projectId, knowledge, repoAnalysis: repo, workflow, releaseReport: release, proofPack: proof }
+  } catch (error) {
+    if (error instanceof AnalysisCancelledError) throw error
+    const sealed = await prisma.analysisRun.findUnique({ where: { id: job.analysisRunId! }, select: { ledgerSealedAt: true } })
+    if (sealed?.ledgerSealedAt) {
+      await prisma.$transaction(async (tx) => {
+        if (!await fenceJobLease(tx, job)) throw new LeaseLostError()
+        await tx.analysisRun.update({ where: { id: job.analysisRunId! }, data: { status: 'SUCCEEDED', inferenceStatus: 'FAILED', completedAt: new Date(), failureClass: null, failureCode: null, failureMessage: null } })
+        const completedJob = await tx.job.updateMany({ where: { id: job.id, leaseToken: job.leaseToken, status: 'RUNNING' }, data: { status: 'SUCCEEDED', completedAt: new Date(), leaseOwner: null, leaseToken: null, leaseExpiresAt: null, heartbeatAt: null } })
+        if (completedJob.count !== 1) throw new LeaseLostError()
+      })
+      return { projectId: job.projectId }
+    }
+    throw error
   } finally {
     clearInterval(poll)
   }

@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server'
 import { requireProjectAccess } from '@/lib/auth/authorization'
-import { isInferenceEnabled } from '@/lib/ai/inference-policy'
 import { checkRateLimit } from '@/lib/security/rate-limit'
 import { ActiveAnalysisRunError, enqueueAnalysis } from '@/lib/execution/enqueue-analysis'
 
@@ -8,9 +7,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const { id } = await params
   const access = await requireProjectAccess(request.headers, id)
   if (!access.ok) return access.response
-  if (!isInferenceEnabled()) {
-    return NextResponse.json({ error: 'Inference is temporarily disabled' }, { status: 503 })
-  }
 
   const rateCheck = await checkRateLimit(`analysis:user:${access.value.user.id}:project:${id}`, {
     windowMs: 60_000,

@@ -100,6 +100,15 @@ model Project {
   githubAuthorizedByUserId                 String?
   githubBindingLastReconciledAt            DateTime?
   githubBindingReconciliationError         String?
+  githubRepositoryPrivate              Boolean?
+  externalInferenceEnabled             Boolean   @default(false)
+  externalInferenceAuthorizedBy        String?
+  externalInferenceAuthorizedAt        DateTime?
+  externalInferenceAckVersion          String?
+  ingestionSuspendedAt                 DateTime?
+  ingestionSuspendReason               String?
+  inferenceSuspendedAt                 DateTime?
+  inferenceSuspendReason               String?
   editRevision               Int       @default(0)
   status                   String    @default("idle")
   activeAnalysisRunId      String?   @unique
@@ -124,6 +133,7 @@ model Project {
   repositorySnapshots RepositorySnapshot[]
   githubOnboardingStates GitHubOnboardingState[]
   repositoryPermissionSnapshots RepositoryPermissionSnapshot[]
+  secretOverrides SecretOverride[]
 
   @@unique([githubInstallationId, githubRepositoryFullName])
   @@unique([githubInstallationId, githubRepositoryId])
@@ -309,15 +319,35 @@ model Verification {
 }
 
 model Source {
-  id         String   @id @default(cuid())
-  projectId  String
-  type       String
-  title      String   @default("")
-  rawContent String
-  documentId String   @default("")
-  createdAt  DateTime @default(now())
+  id                String   @id @default(cuid())
+  projectId         String
+  type              String
+  title             String   @default("")
+  rawContent        String
+  documentId        String   @default("")
+  quarantineStatus  String   @default("CLEAR")
+  quarantineReason  String?
+  scannerVersion    String?
+  createdAt         DateTime @default(now())
 
   project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+model SecretOverride {
+  id          String   @id @default(cuid())
+  projectId   String
+  contentHash String
+  reason      String
+  authorizedBy String
+  authorizedAt DateTime @default(now())
+  expiresAt   DateTime?
+  scannerVersion String
+  createdAt   DateTime @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, contentHash])
+  @@index([projectId, createdAt])
 }
 
 model KnowledgeSummary {
@@ -466,6 +496,10 @@ model AnalysisRun {
   projectId          String
   ownerId            String
   status             AnalysisRunStatus @default(QUEUED)
+  processingMode     String            @default("INFERENCE_ENABLED")
+  inferenceStatus    String            @default("PENDING")
+  admissionManifest  Json              @default("{}")
+  admissionDigest    String?
   inputSnapshot      Json
   inputHash          String
   commitSha          String?

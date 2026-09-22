@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import prisma from '@/lib/db/prisma'
+import { redactSecrets } from '@/lib/security/secret-redaction'
 import { createProjectSchema } from '@/lib/security/validation'
 import { logAudit } from '@/lib/security/audit-log'
 import { requireSession } from '@/lib/auth/authorization'
@@ -55,7 +56,7 @@ export async function POST(request: Request) {
       },
     })
 
-    await logAudit('project_created', `Project "${name}" created`, project.id)
+    await logAudit('project_created', `Project "${redactSecrets(name).slice(0, 200)}" created`, project.id)
 
     return NextResponse.json(project, { status: 201 })
   } catch {

@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { ErrorBoundary } from "@/components/ErrorBoundary"
 import { GitHubConnectionCard } from "@/components/github-connection-card"
+import { PrivacyPolicyCard } from "@/components/privacy-policy-card"
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts"
 
 interface AnalysisRunView {
@@ -45,7 +46,12 @@ interface ProjectDetail {
   githubInstallationAccountLogin?: string | null
   githubInstallationAccountType?: string | null
   githubBindingLastReconciledAt?: string | null
-  sources: { id: string; type: string; title: string }[]
+  githubRepositoryPrivate?: boolean | null
+  externalInferenceEnabled: boolean
+  ingestionSuspendedAt?: string | null
+  inferenceSuspendedAt?: string | null
+  editRevision: number
+  sources: { id: string; type: string; title: string; quarantineStatus?: string }[]
   knowledge: Record<string, unknown> | null
   repoAnalysis: Record<string, unknown> | null
   workflow: Record<string, unknown> | null
@@ -297,6 +303,16 @@ export default function ProjectPage() {
             lastReconciledAt={project.githubBindingLastReconciledAt}
           />
         </Suspense>
+
+        <PrivacyPolicyCard
+          projectId={project.id}
+          editRevision={project.editRevision}
+          repositoryPrivate={project.githubRepositoryPrivate}
+          externalInferenceEnabled={project.externalInferenceEnabled}
+          ingestionSuspendedAt={project.ingestionSuspendedAt}
+          inferenceSuspendedAt={project.inferenceSuspendedAt}
+          quarantinedSources={project.sources.filter((source) => source.quarantineStatus === 'QUARANTINED').length}
+        />
 
         <div className="grid md:grid-cols-3 gap-4 mb-8">
           {sections.map(s => (

@@ -76,6 +76,7 @@ async function main(): Promise<void> {
     assert(names.includes('20260812123000_llm_boundary_telemetry'), 'LLM telemetry migration was applied in order')
     assert(names.includes('20260922190000_github_authority_safe_onboarding'), 'GitHub authority-safe onboarding migration was applied in order')
     assert(names.includes('20260922210000_workflow_human_overlay'), 'workflow human-overlay migration was applied in order')
+    assert(names.includes('20260922220000_data_transfer_containment'), 'data-transfer containment migration was applied in order')
 
     const ownerId = await createUser(client)
 
@@ -105,6 +106,11 @@ async function main(): Promise<void> {
     const preservedWorkflow = await client.query('SELECT "humanState","revision" FROM "Workflow" WHERE "projectId"=$1', [uniqueProject])
     assert(preservedWorkflow.rows[0].humanState.tasks[0].id === 'human-task', 'generated workflow updates preserve human-maintained state')
     assert(preservedWorkflow.rows[0].revision === 2, 'successful workflow update increments the revision')
+    await client.query('INSERT INTO "Source" ("id","projectId","type","title","rawContent","quarantineStatus","scannerVersion") VALUES ($1,$2,\'notes\',\'quarantined\',\'ghp_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\',\'QUARANTINED\',\'secret-scanner-v1\')', [`source-${randomUUID()}`, uniqueProject])
+    const quarantined = await client.query('SELECT COUNT(*)::int AS count FROM "Source" WHERE "projectId"=$1 AND "quarantineStatus"=\'QUARANTINED\'', [uniqueProject])
+    assert(quarantined.rows[0].count === 1, 'quarantined sources persist scanner state')
+    const manifestCheck = await client.query('SELECT "processingMode","admissionManifest","admissionDigest" FROM "AnalysisRun" LIMIT 1')
+    void manifestCheck
     const firstRun = await createRun(client, uniqueProject, ownerId)
     let uniqueViolation = false
     try { await createRun(client, uniqueProject, ownerId) } catch (error) {

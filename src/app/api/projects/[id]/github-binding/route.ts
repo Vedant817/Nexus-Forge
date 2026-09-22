@@ -102,6 +102,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
           githubAuthorizedByUserId: access.value.user.id,
           githubBindingLastReconciledAt: observedAt,
           githubBindingReconciliationError: null,
+          githubRepositoryPrivate: selected.private,
           repoUrl: `https://github.com/${canonical.full_name}`,
           editRevision: { increment: 1 },
         },

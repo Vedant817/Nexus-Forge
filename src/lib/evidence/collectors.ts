@@ -105,7 +105,7 @@ export function collectRunEvidence(input: {
   repositoryFacts?: RepositoryCollectorFacts
   pullRequestFacts?: PullRequestCollectorFacts
   repositoryFiles?: Array<{ path: string; contentHash: string }>
-  proofArtifactHash: string
+  proofArtifactHash?: string
 }): EvidenceView[] {
   const common = { collectorVersion: COLLECTOR_VERSION, observedAt: input.observedAt }
   const records: EvidenceInput[] = [
@@ -120,12 +120,14 @@ export function collectRunEvidence(input: {
       stableEvidenceId: 'pull-request:scope', evidenceType: 'pull_request.scope', source: input.project.prUrl || 'not-configured', collectorId: 'run-snapshot-scope',
       facts: { configured: Boolean(input.project.prUrl) }, provenance: 'SOURCE_SNAPSHOT', confidence: 'HIGH',
     },
-    {
+  ]
+  if (input.proofArtifactHash) {
+    records.push({
       ...common,
       stableEvidenceId: 'proof:artifact', evidenceType: 'proof.artifact', source: 'artifact:PROOF', collectorId: 'durable-artifact-checkpoint',
       facts: { contentHash: input.proofArtifactHash, reviewRequired: true }, provenance: 'GENERATED_ARTIFACT', confidence: 'HIGH',
-    },
-  ]
+    })
+  }
 
   for (const source of input.sources) {
     records.push({

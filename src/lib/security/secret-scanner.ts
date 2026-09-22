@@ -1,0 +1,111 @@
+export const SECRET_SCANNER_VERSION = 'secret-scanner-v1'
+
+export type SecretFinding = {
+  kind: string
+  severity: 'high' | 'medium'
+  path?: string
+  line?: number
+  scannerVersion: string
+}
+
+const STRUCTURED_PATTERNS: Array<{ kind: string; pattern: RegExp }> = [
+  { kind: 'private_key', pattern: /-----BEGIN (?:RSA |EC |DSA |OPENSSH |ENCRYPTED )?PRIVATE KEY-----/ },
+  { kind: 'database_url', pattern: /(?:postgres(?:ql)?|mysql|mariadb|mongodb(?:\+srv)?|redis(?:s)?):\/\/[^\s/:]+:[^\s@/]+@/i },
+  { kind: 'slack_webhook', pattern: /https:\/\/hooks\.slack\.com\/services\/[A-Z0-9]+\/[A-Z0-9]+\/[A-Za-z0-9_-]+/ },
+  { kind: 'github_token', pattern: /(?:ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9]{36,}/ },
+  { kind: 'github_pat', pattern: /github_pat_[A-Za-z0-9_]{36,}/ },
+  { kind: 'groq_key', pattern: /gsk_[A-Za-z0-9_-]{20,}/ },
+  { kind: 'openai_project_key', pattern: /sk-proj-[A-Za-z0-9_-]{20,}/ },
+  { kind: 'anthropic_key', pattern: /sk-ant-[A-Za-z0-9_-]{20,}/ },
+  { kind: 'openai_key', pattern: /sk-[A-Za-z0-9]{32,}/ },
+  { kind: 'google_key', pattern: /AIza[0-9A-Za-z_-]{35}/ },
+  { kind: 'gitlab_token', pattern: /glpat-[A-Za-z0-9_-]{20,}/ },
+  { kind: 'npm_token', pattern: /npm_[A-Za-z0-9]{30,}/ },
+  { kind: 'jwt', pattern: /eyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}/ },
+  { kind: 'stripe_live_key', pattern: /(?:pk|sk)_live_[A-Za-z0-9]{24,}/ },
+  { kind: 'aws_access_key', pattern: /AKIA[0-9A-Z]{16}/ },
+  { kind: 'generic_assignment', pattern: /(?:api[-_]?key|apikey|client[-_]?secret|access[-_]?token|auth[-_]?token|secret|token|password|passwd|private[-_]?key|database[-_]?url|db[-_]?url)\s*[:=]\s*(?:"[^"\r\n]{8,}"|'[^'\r\n]{8,}'|[^\s,;]{12,})/i },
+]
+
+const HIGH_RISK_PATH_PATTERNS: RegExp[] = [
+  /(^|\/)\.env(\..*)?$/i,
+  /(^|\/)\.env\.(local|production|development).*$/i,
+  /(^|\/)\.aws\//i,
+  /(^|\/)\.ssh\//i,
+  /(^|\/)(secrets?|credentials?|private_keys?)\//i,
+  /id_rsa/i,
+  /\.pem$/i,
+  /\.key$/i,
+  /\.p12$/i,
+  /\.pfx$/i,
+  /(^|\/)\.npmrc$/i,
+  /(^|\/)\.pypirc$/i,
+  /(^|\/)\.docker\/config\.json$/i,
+  /(^|\/)kube\/config$/i,
+]
+
+export function isHighRiskPath(path: string): boolean {
+  const normalized = path.replace(/\\/g, '/')
+  return HIGH_RISK_PATH_PATTERNS.some((pattern) => pattern.test(normalized))
+}
+
+export function shannonEntropy(value: string): number {
+  if (!value) return 0
+  const counts = new Map<string, number>()
+  for (const char of value) counts.set(char, (counts.get(char) ?? 0) + 1)
+  let entropy = 0
+  for (const count of counts.values()) {
+    const p = count / value.length
+    entropy -= p * Math.log2(p)
+  }
+  return entropy
+}
+
+const ENTROPY_TOKEN_PATTERN = /[A-Za-z0-9_\-+/=]{20,}/g
+
+export function scanSecretContent(content: string, path?: string): SecretFinding[] {
+  const findings: SecretFinding[] = []
+  if (path && isHighRiskPath(path)) {
+    findings.push({ kind: 'high_risk_path', severity: 'medium', path, scannerVersion: SECRET_SCANNER_VERSION })
+  }
+  const lines = content.split(/\r?\n/)
+  lines.forEach((line, index) => {
+    for (const { kind } of STRUCTURED_PATTERNS) {
+      // Re-test per line to get line numbers without storing values.
+      const entry = STRUCTURED_PATTERNS.find((candidate) => candidate.kind === kind)!
+      // Reset lastIndex for global patterns by constructing a non-global test.
+      const source = entry.pattern.source
+      const flags = entry.pattern.flags.replace('g', '')
+      if (new RegExp(source, flags).test(line)) {
+        findings.push({ kind, severity: 'high', path, line: index + 1, scannerVersion: SECRET_SCANNER_VERSION })
+        break
+      }
+    }
+    // High-entropy fallback for unknown credential-like tokens.
+    const candidates = line.match(ENTROPY_TOKEN_PATTERN) ?? []
+    for (const candidate of candidates) {
+      const stripped = candidate.replace(/^[^A-Za-z0-9]+|[^A-Za-z0-9]+$/g, '')
+      if (stripped.length < 24) continue
+      if (shannonEntropy(stripped) >= 4.2) {
+        findings.push({ kind: 'high_entropy_token', severity: 'medium', path, line: index + 1, scannerVersion: SECRET_SCANNER_VERSION })
+        break
+      }
+    }
+    // Split-token bypass: key and value on same line with concatenation/operators.
+    if (/secret|token|password|passwd|api[_-]?key/i.test(line) && /(\+|concat|join|join\(|\|\||&&)/.test(line)) {
+      findings.push({ kind: 'split_token_suspicious', severity: 'medium', path, line: index + 1, scannerVersion: SECRET_SCANNER_VERSION })
+    }
+  })
+  // Deduplicate by kind+line to keep output bounded.
+  const seen = new Set<string>()
+  return findings.filter((finding) => {
+    const key = `${finding.kind}:${finding.line ?? 0}:${finding.path ?? ''}`
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  }).slice(0, 50)
+}
+
+export function hasBlockingFinding(findings: SecretFinding[]): boolean {
+  return findings.some((finding) => finding.severity === 'high' || finding.kind === 'high_risk_path' || finding.kind === 'high_entropy_token')
+}

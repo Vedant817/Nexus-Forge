@@ -4,6 +4,7 @@ import { generateText, Output, type LanguageModel } from 'ai'
 import { createGroq } from '@ai-sdk/groq'
 import config from '@/lib/config/env'
 import { redactSecrets, redactStructuredValue } from '@/lib/security/secret-redaction'
+import { hasBlockingFinding, scanSecretContent, SECRET_SCANNER_VERSION } from '@/lib/security/secret-scanner'
 import { assertInferenceEnabled } from '@/lib/ai/inference-policy'
 import {
   getAiMaxOutputTokens,
@@ -17,6 +18,7 @@ import { assertGroqModelAllowed, STAGE_EXECUTION_REGISTRY } from '@/lib/executio
 import {
   AgentOutputValidationError,
   BudgetAccountingError,
+  ModelBoundaryError,
   ModelConfigurationError,
   normalizeModelBoundaryError,
 } from '@/lib/ai/errors'
@@ -269,6 +271,10 @@ export async function runAgentViaAiSdk<T>(
       attemptCount: result.steps.length,
     }
     const output = redactStructuredValue(result.output)
+    const outputFindings = scanSecretContent(JSON.stringify(output))
+    if (hasBlockingFinding(outputFindings)) {
+      throw new ModelBoundaryError('AI_OUTPUT_QUARANTINED', false, `Model output blocked by ${SECRET_SCANNER_VERSION}; suspected credential material was detected.`)
+    }
 
     if (reservation) {
       try {

@@ -108,14 +108,16 @@ export async function POST(request: Request) {
   const repositoryId = String(payload.repository.id)
   const project = await prisma.project.findFirst({
     where: { githubInstallationId: installationId, githubRepositoryId: repositoryId, githubBindingStatus: 'active' },
-    select: { id: true, ownerId: true },
+    select: { id: true, ownerId: true, externalInferenceEnabled: true, inferenceSuspendedAt: true, ingestionSuspendedAt: true },
   })
   if (!project?.ownerId) {
     return NextResponse.json({ error: 'Repository installation is not registered' }, { status: 404 })
   }
 
   const ownerId = project.ownerId
-  const shouldProcess = payload.action === 'closed' && payload.pull_request.merged
+  const merged = payload.action === 'closed' && payload.pull_request.merged
+  const inferenceAllowed = process.env.INFERENCE_DISABLED?.toLowerCase() !== 'true' && !project.inferenceSuspendedAt && !project.ingestionSuspendedAt && project.externalInferenceEnabled
+  const shouldProcess = merged && inferenceAllowed
   const eventKey = `${repositoryId}:${payload.pull_request.id}:${payload.action}:${payload.pull_request.merged}`
 
   try {

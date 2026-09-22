@@ -9,6 +9,7 @@ export type ModelBoundaryFailureCode =
   | 'AI_PROVIDER_TRANSIENT'
   | 'AI_PROVIDER_PERMANENT'
   | 'AI_OUTPUT_VALIDATION_FAILED'
+  | 'AI_OUTPUT_QUARANTINED'
   | 'AI_BUDGET_ACCOUNTING_FAILED'
 
 export class ModelBoundaryError extends Error {

@@ -22,6 +22,9 @@ describe('analysis enqueue concurrency mapping', () => {
     mocks.findProject.mockResolvedValue({
       id: 'project-1', ownerId: 'user-1', name: 'Project', goal: 'Goal',
       repoUrl: 'https://github.com/owner/repo', prUrl: '', sources: [],
+      githubRepositoryPrivate: false, externalInferenceEnabled: true,
+      externalInferenceAuthorizedBy: 'user-1', externalInferenceAuthorizedAt: new Date(),
+      ingestionSuspendedAt: null, inferenceSuspendedAt: null,
     })
     mocks.transaction.mockRejectedValue({ code: 'P2002' })
     mocks.findActive.mockResolvedValue({ id: 'run-existing' })
@@ -36,7 +39,10 @@ describe('analysis enqueue concurrency mapping', () => {
     mocks.findProject.mockResolvedValue({
       id: 'project-1', ownerId: 'user-1', name: secret, goal: secret,
       repoUrl: `https://github.com/owner/repo?token=${secret}`, prUrl: '',
-      sources: [{ id: 'source-1', type: secret, title: secret, rawContent: secret }],
+      sources: [{ id: 'source-1', type: secret, title: secret, rawContent: secret, quarantineStatus: 'CLEAR' }],
+      githubRepositoryPrivate: false, externalInferenceEnabled: true,
+      externalInferenceAuthorizedBy: 'user-1', externalInferenceAuthorizedAt: new Date(),
+      ingestionSuspendedAt: null, inferenceSuspendedAt: null,
     })
     let createData: Record<string, unknown> | undefined
     mocks.transaction.mockImplementation(async (callback) => callback({
@@ -60,6 +66,9 @@ describe('analysis enqueue concurrency mapping', () => {
     mocks.findProject.mockResolvedValue({
       id: 'project-1', ownerId: 'user-1', name: 'Project', goal: 'Goal',
       repoUrl: 'https://github.com/owner/repo', prUrl: '', sources: [],
+      githubRepositoryPrivate: false, externalInferenceEnabled: true,
+      externalInferenceAuthorizedBy: 'user-1', externalInferenceAuthorizedAt: new Date(),
+      ingestionSuspendedAt: null, inferenceSuspendedAt: null,
     })
 
     await expect(enqueueAnalysis('project-1', 'user-1')).rejects.toMatchObject({

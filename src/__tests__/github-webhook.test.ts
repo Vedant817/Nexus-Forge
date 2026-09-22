@@ -67,7 +67,7 @@ describe('GitHub webhook receiver', () => {
   beforeEach(() => {
     process.env.GITHUB_WEBHOOK_SECRET = 'test-webhook-secret'
     process.env.WEBHOOK_MAX_BODY_BYTES = '1000000'
-    mocks.findProject.mockResolvedValue({ id: 'project-1', ownerId: 'user-1' })
+    mocks.findProject.mockResolvedValue({ id: 'project-1', ownerId: 'user-1', externalInferenceEnabled: true, inferenceSuspendedAt: null, ingestionSuspendedAt: null })
     mocks.createDelivery.mockResolvedValue({ id: 'webhook-1' })
     mocks.createJob.mockResolvedValue({ id: 'job-1' })
     mocks.transaction.mockImplementation(async (callback: (tx: unknown) => unknown) => callback({
@@ -96,7 +96,7 @@ describe('GitHub webhook receiver', () => {
         githubRepositoryId: '7',
         githubBindingStatus: 'active',
       },
-      select: { id: true, ownerId: true },
+      select: { id: true, ownerId: true, externalInferenceEnabled: true, inferenceSuspendedAt: true, ingestionSuspendedAt: true },
     })
     expect(mocks.createDelivery).toHaveBeenCalledWith({
       data: expect.objectContaining({

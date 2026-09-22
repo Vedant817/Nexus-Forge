@@ -4,6 +4,7 @@ import type { Prisma } from '@prisma/client'
 import prisma from '@/lib/db/prisma'
 import { contentHash } from '@/lib/execution/hash'
 import { redactSecrets } from '@/lib/security/secret-redaction'
+import { hasBlockingFinding, isHighRiskPath, scanSecretContent, SECRET_SCANNER_VERSION } from '@/lib/security/secret-scanner'
 import { createInstallationToken } from './app-auth'
 import { githubJson } from './http'
 
@@ -111,6 +112,7 @@ export async function collectRepositorySnapshot(input: {
     }
     const size = entry.size
     if (entry.mode === '120000') { files.push({ path: entry.path, mode: entry.mode, objectType: entry.type, blobSha: entry.sha, size, status: 'symlink' }); continue }
+    if (isHighRiskPath(entry.path)) { tree.complete = false; files.push({ path: entry.path, mode: entry.mode, objectType: entry.type, blobSha: entry.sha, size, status: 'excluded_high_risk', diagnostic: `Excluded by ${SECRET_SCANNER_VERSION} path policy.` }); continue }
     const eligible = SOURCE_EXTENSIONS.test(entry.path) || IMPORTANT_NAMES.test(entry.path)
     if (!eligible) { files.push({ path: entry.path, mode: entry.mode, objectType: entry.type, blobSha: entry.sha, size, status: 'not_collected' }); continue }
     if (sourceCount >= MAX_SOURCE_FILES) { tree.complete = false; files.push({ path: entry.path, mode: entry.mode, objectType: entry.type, blobSha: entry.sha, size, status: 'bounded', diagnostic: 'Source file count bound reached.' }); continue }
@@ -120,7 +122,14 @@ export async function collectRepositorySnapshot(input: {
     if (blob.encoding !== 'base64' || !blob.content) { tree.complete = false; files.push({ path: entry.path, mode: entry.mode, objectType: entry.type, blobSha: entry.sha, size, status: 'unavailable' }); continue }
     const decoded = Buffer.from(blob.content.replace(/\s/g, ''), 'base64')
     if (decoded.length > MAX_FILE_BYTES || decodedBytes + decoded.length > MAX_TOTAL_BYTES) { tree.complete = false; files.push({ path: entry.path, mode: entry.mode, objectType: entry.type, blobSha: entry.sha, size: decoded.length, status: 'oversize' }); continue }
-    const content = redactSecrets(decoded.toString('utf8'))
+    const rawContent = decoded.toString('utf8')
+    const findings = scanSecretContent(rawContent, entry.path)
+    if (hasBlockingFinding(findings)) {
+      tree.complete = false
+      files.push({ path: entry.path, mode: entry.mode, objectType: entry.type, blobSha: entry.sha, size: decoded.length, status: 'quarantined', diagnostic: `Quarantined by ${SECRET_SCANNER_VERSION}: ${[...new Set(findings.map((finding) => finding.kind))].join(',').slice(0, 200)}` })
+      continue
+    }
+    const content = redactSecrets(rawContent)
     decodedBytes += decoded.length
     sourceCount += 1
     files.push({ path: entry.path, mode: entry.mode, objectType: entry.type, blobSha: entry.sha, size: decoded.length, status: 'collected', language: extension(entry.path), content, contentHash: contentHash(content) })
