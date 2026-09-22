@@ -9,9 +9,15 @@ vi.mock('@/lib/db/prisma', () => ({
   default: {
     project: { findUnique: mocks.findProject },
     analysisRun: { findFirst: mocks.findActive },
+    pilotEntitlement: { findUnique: vi.fn(async () => null) },
     $transaction: mocks.transaction,
   },
 }))
+
+vi.mock('@/lib/billing/entitlements', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/billing/entitlements')>()
+  return { ...actual, reserveRunUsage: vi.fn(async () => {}) }
+})
 
 import { ActiveAnalysisRunError, enqueueAnalysis } from '@/lib/execution/enqueue-analysis'
 

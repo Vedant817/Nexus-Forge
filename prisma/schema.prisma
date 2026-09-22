@@ -442,6 +442,47 @@ model IdempotencyKey {
   @@index([projectId, createdAt])
 }
 
+model PilotEntitlement {
+  id             String    @id @default(cuid())
+  organizationId String?   @unique
+  userId         String?   @unique
+  plan           String    @default("pilot")
+  maxRunsPerDay  Int       @default(10)
+  maxExportsPerDay Int     @default(50)
+  maxProjects    Int       @default(50)
+  revision       Int       @default(1)
+  expiresAt      DateTime?
+  suspended      Boolean   @default(false)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+}
+
+model EntitlementRevision {
+  id             String   @id @default(cuid())
+  organizationId String?
+  userId         String?
+  revision       Int
+  allowances     Json
+  actorId        String
+  createdAt      DateTime @default(now())
+
+  @@index([organizationId, revision])
+  @@index([userId, revision])
+}
+
+model EntitlementUsage {
+  id             String   @id @default(cuid())
+  organizationId String   @default("")
+  userId         String   @default("")
+  periodStart    DateTime
+  runsUsed       Int      @default(0)
+  exportsUsed    Int      @default(0)
+  updatedAt      DateTime @updatedAt
+
+  @@unique([organizationId, userId, periodStart])
+  @@index([periodStart])
+}
+
 model KnowledgeSummary {
   id                     String   @id @default(cuid())
   projectId              String   @unique

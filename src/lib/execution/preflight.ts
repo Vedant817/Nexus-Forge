@@ -26,8 +26,12 @@ export type PreflightProject = {
   sources: Array<{ id: string; type: string; title: string; content: string }>
 }
 
-export function preflightAdmission(input: { project: PreflightProject; actorId: string; inputSnapshot: unknown; inputHash: string; modelConfig: unknown }) {
+export function preflightAdmission(input: { project: PreflightProject; actorId: string; inputSnapshot: unknown; inputHash: string; modelConfig: unknown; entitlement?: { plan: string; revision: number; maxRunsPerDay: number; maxExportsPerDay: number; maxProjects: number; expiresAt: Date | null; suspended: boolean } }) {
   const { project, actorId } = input
+  if (input.entitlement) {
+    if (input.entitlement.suspended) throw new Error('Pilot entitlement is suspended.')
+    if (input.entitlement.expiresAt && input.entitlement.expiresAt.getTime() <= Date.now()) throw new Error('Pilot entitlement has expired.')
+  }
   if (!project.ownerId || project.ownerId !== actorId) throw new Error('Project authorization failed.')
   if (project.ingestionSuspendedAt) throw new Error('Ingestion is suspended for this project.')
   if ((project.repoUrl || project.prUrl) && process.env.NODE_ENV === 'production') {
@@ -75,7 +79,15 @@ export function preflightAdmission(input: { project: PreflightProject; actorId: 
     modelConfig: input.modelConfig,
     processingMode,
     privacyAckVersion: processingMode === 'INFERENCE_ENABLED' ? PRIVACY_ACK_VERSION : null,
-    entitlement: { plan: 'pilot', maxSources, maxContentLength: maxContent },
+    entitlement: {
+      plan: input.entitlement?.plan ?? 'pilot',
+      revision: input.entitlement?.revision ?? 0,
+      maxSources,
+      maxContentLength: maxContent,
+      maxRunsPerDay: input.entitlement?.maxRunsPerDay ?? 10,
+      maxExportsPerDay: input.entitlement?.maxExportsPerDay ?? 50,
+      expiresAt: input.entitlement?.expiresAt?.toISOString() ?? null,
+    },
     retentionClass: RETENTION_CLASS,
     requiredApprovals: [],
     createdAt: new Date().toISOString(),

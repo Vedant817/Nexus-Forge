@@ -64,6 +64,9 @@ export async function enqueueAnalysis(projectId: string, ownerId: string): Promi
     throw new Error('A quarantined source must be resolved or overridden before running analysis.')
   }
   const inputHash = contentHash(inputSnapshot)
+  const { getEffectiveEntitlement, assertEntitlementActive, reserveRunUsage } = await import('@/lib/billing/entitlements')
+  const entitlement = await getEffectiveEntitlement({ organizationId: project.organizationId, userId: ownerId })
+  assertEntitlementActive(entitlement)
   const preflightProject = {
     ...project,
     repoUrl: inputSnapshot.project.repoUrl,
@@ -76,6 +79,7 @@ export async function enqueueAnalysis(projectId: string, ownerId: string): Promi
     inputSnapshot,
     inputHash,
     modelConfig: { provider: 'groq', model: config.GROQ_MODEL },
+    entitlement,
   })
   const processingMode = preflight.processingMode
   const inferenceEnabled = processingMode === 'INFERENCE_ENABLED'
@@ -88,12 +92,14 @@ export async function enqueueAnalysis(projectId: string, ownerId: string): Promi
       inputSnapshot,
       inputHash,
       modelConfig,
+      entitlement,
     })
     return { manifest: resolved.manifest, digest: resolved.digest }
   })()
 
   try {
     const run = await prisma.$transaction(async (tx) => {
+      await reserveRunUsage(tx, { organizationId: entitlement.organizationId, userId: ownerId, maxRunsPerDay: entitlement.maxRunsPerDay })
       const created = await tx.analysisRun.create({
         data: {
           projectId,
