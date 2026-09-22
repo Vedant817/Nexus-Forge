@@ -145,6 +145,7 @@ model Project {
   triggerSettings TriggerSettings?
   findings Finding[]
   shareLinks ShareLink[]
+  verificationRequests VerificationRequest[]
   organizationId String?
   organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Restrict)
 
@@ -777,6 +778,46 @@ model OutboundDelivery {
   createdAt   DateTime  @default(now())
 
   @@index([webhookId, createdAt])
+}
+
+model SandboxKey {
+  id         String    @id @default(cuid())
+  keyId      String    @unique
+  keyMaterial String?
+  retiredAt  DateTime?
+  createdAt  DateTime  @default(now())
+}
+
+model VerificationRequest {
+  id           String   @id @default(cuid())
+  projectId    String
+  runId        String
+  files        Json     @default("[]")
+  checkProfile String   @default("default")
+  patchHash    String?
+  manifestHash String?
+  status       String   @default("PROPOSED")
+  createdBy    String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, status])
+}
+
+model VerificationResult {
+  id           String   @id @default(cuid())
+  requestId    String
+  envelopeId   String   @unique
+  checkId      String
+  status       String
+  exitCode     Int?
+  outputDigest String?
+  keyId        String
+  createdAt    DateTime @default(now())
+
+  @@index([requestId, createdAt])
 }
 
 model ProfileRevision {

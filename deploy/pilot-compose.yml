@@ -35,3 +35,11 @@ services:
     command: ["npx", "prisma", "migrate", "deploy"]
     environment:
       DATABASE_URL: ${DATABASE_URL}
+  sandbox-worker:
+    image: nexus-forge:${APP_VERSION:-dev}
+    command: ["npm", "run", "worker:sandbox"]
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      SANDBOX_CHECK_TIMEOUT_MS: ${SANDBOX_CHECK_TIMEOUT_MS:-60000}
+    deploy:
+      replicas: 1

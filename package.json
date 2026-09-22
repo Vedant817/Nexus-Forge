@@ -15,6 +15,7 @@
     "test:integration": "tsx scripts/test-durable-postgres.ts",
     "backfill:project-owners": "tsx scripts/backfill-project-owners.ts",
     "worker:analysis": "tsx scripts/analysis-worker.ts",
+    "worker:sandbox": "tsx scripts/sandbox-worker.ts",
     "schedule:pilot": "tsx scripts/pilot-scheduler.ts",
     "billing:reconcile": "tsx scripts/billing-reconcile.ts",
     "cli": "tsx scripts/cli.ts",
