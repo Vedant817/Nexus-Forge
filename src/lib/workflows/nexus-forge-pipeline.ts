@@ -18,7 +18,7 @@ import { collectRunEvidence, pullRequestFactsFromContext, repositoryFactsFromCon
 import { persistEvidenceScorecards } from '@/lib/evidence/persistence'
 import { buildDependencyMap, type DependencyMap } from '@/lib/repository/dependency-map'
 import type { EvaluatedScorecard } from '@/lib/evidence/types'
-import { constrainWorkflowEvidenceReferences } from '@/lib/evidence/references'
+import { constrainProofEvidenceReferences, constrainReleaseEvidenceReferences, constrainWorkflowEvidenceReferences } from '@/lib/evidence/references'
 import { publishDeterministicBaseline } from '@/lib/execution/deterministic-baseline'
 import { verifyAdmissionManifest } from '@/lib/execution/preflight'
 import type {
@@ -312,7 +312,10 @@ async function publishSuccessfulRun(input: {
         repositoryFullName: input.repositoryFullName,
         commitSha: input.commitSha,
         project: snapshot.project,
-        sources: snapshot.sources,
+        sources: snapshot.sources.map((source) => ({
+          id: source.id, type: source.type, title: source.title,
+          contentHash: contentHash(source.content), byteCount: source.content.length, contentType: 'text',
+        })),
         repositoryFacts: repo?.collectorFacts,
         pullRequestFacts: release?.collectorFacts,
         proofArtifactHash: contentHash(proof),
@@ -654,7 +657,12 @@ export async function executeAnalysisJob(job: ClaimedJob, leaseSignal: AbortSign
             workflowAcceptanceCriteria: workflow.acceptanceCriteria,
             repoAnalysis: repo,
           } satisfies ReleaseReadinessInput, context(AnalysisStageName.RELEASE))
-          return { ...explanation, collectorFacts: pullRequestFactsFromContext(pr) }
+          const releaseEvidenceIds = [
+            ...snapshot.sources.map((source) => `source:${source.id}`),
+            ...(repo ? ['repository:inventory'] : []),
+            'pull-request:files',
+          ]
+          return { ...constrainReleaseEvidenceReferences(explanation, releaseEvidenceIds), collectorFacts: pullRequestFactsFromContext(pr) }
         },
       }) as ReleaseReadinessOutput
     }
@@ -669,13 +677,21 @@ export async function executeAnalysisJob(job: ClaimedJob, leaseSignal: AbortSign
       inputHash: proofInputHash,
       signal,
       metadata: stageMetadata(AnalysisStageName.PROOF),
-      run: () => runner.runProofOfWork({
-        projectGoal: snapshot.project.goal || 'Build project with AI-assisted development',
-        workflowOutput: workflow,
-        repoAnalysis: repo,
-        releaseReport: release,
-        finalSummary: `Completed analysis of ${snapshot.sources.length} sources${snapshot.project.repoUrl ? ` and repo ${snapshot.project.repoUrl}` : ''}`,
-      } satisfies ProofOfWorkInput, context(AnalysisStageName.PROOF)),
+      run: async () => {
+        const drafted = await runner.runProofOfWork({
+          projectGoal: snapshot.project.goal || 'Build project with AI-assisted development',
+          workflowOutput: workflow,
+          repoAnalysis: repo,
+          releaseReport: release,
+          finalSummary: `Completed analysis of ${snapshot.sources.length} sources${snapshot.project.repoUrl ? ` and repo ${snapshot.project.repoUrl}` : ''}`,
+        } satisfies ProofOfWorkInput, context(AnalysisStageName.PROOF))
+        const proofEvidenceIds = [
+          ...snapshot.sources.map((source) => `source:${source.id}`),
+          ...(repo ? ['repository:inventory'] : []),
+          ...(release ? ['pull-request:files'] : []),
+        ]
+        return constrainProofEvidenceReferences(drafted, proofEvidenceIds)
+      },
     }) as ProofOfWorkOutput
 
     await assertExecutionAllowed(job, signal)

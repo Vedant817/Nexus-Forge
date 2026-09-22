@@ -62,6 +62,13 @@ export async function publishDeterministicBaseline(job: ClaimedJob, signal: Abor
     }
   }
 
+  let pullRequestSnapshot: {
+    pullNumber: number; headSha: string; baseSha: string; mergedCommitSha: string | null;
+    files: Array<{ path: string; additions: number; deletions: number }>;
+    checks: Array<{ name: string; status: string; conclusion: string | null }>;
+    reviews: Array<{ reviewId: string; state: string; submittedAt: string | null }>;
+    complete: boolean; diagnostics: string[]
+  } | undefined
   if (snapshot.project.prUrl && bindingActive && snapshot.project.githubRepositoryFullName) {
     try {
       const pr = await collectPullRequestContext({
@@ -72,8 +79,20 @@ export async function publishDeterministicBaseline(job: ClaimedJob, signal: Abor
         signal,
       })
       pullRequestFacts = pullRequestFactsFromContext({ title: pr.title, body: pr.body, changedFiles: pr.changedFiles, diff: pr.diff, additions: pr.additions, deletions: pr.deletions, fileListComplete: pr.fileListComplete, checksComplete: pr.checksComplete, checks: pr.checks, reviewsComplete: pr.reviewsComplete, reviews: pr.reviews, headSha: pr.headSha })
+      const { parseGitHubPrUrl } = await import('@/lib/security/url-safety')
+      const parsed = parseGitHubPrUrl(snapshot.project.prUrl)
+      pullRequestSnapshot = {
+        pullNumber: parsed.ok ? parsed.data.pullNumber : 0,
+        headSha: pr.headSha, baseSha: pr.baseSha, mergedCommitSha: pr.mergedCommitSha,
+        files: pr.changedFiles.slice(0, 3000).map((path) => ({ path: path.slice(0, 500), additions: 0, deletions: 0 })),
+        checks: pr.checks.slice(0, 100).map((check) => ({ name: check.name.slice(0, 300), status: check.status, conclusion: check.conclusion })),
+        reviews: pr.reviews.slice(0, 100).map((review) => ({ reviewId: review.id, state: review.state, submittedAt: review.submittedAt })),
+        complete: pr.fileListComplete && pr.checksComplete && pr.reviewsComplete,
+        diagnostics: pr.fileListComplete ? [] : ['Pull request collection incomplete or bounded.'],
+      }
     } catch {
       pullRequestFacts = undefined
+      pullRequestSnapshot = undefined
     }
   }
 
@@ -83,12 +102,17 @@ export async function publishDeterministicBaseline(job: ClaimedJob, signal: Abor
     if (!await fenceJobLease(tx, job)) throw new LeaseLostError()
     const existing = await tx.scorecard.findMany({ where: { analysisRunId: job.analysisRunId! }, select: { id: true } })
     if (existing.length > 0) return
+    const { contentHash: hashContent } = await import('@/lib/execution/hash')
     const evidence = collectRunEvidence({
-      observedAt: run.createdAt,
+      observedAt: new Date(),
       repositoryFullName: project.githubRepositoryFullName ?? undefined,
       commitSha,
       project: snapshot.project,
-      sources: snapshot.sources,
+      sources: snapshot.sources.map((source) => ({
+        id: source.id, type: source.type, title: source.title,
+        contentHash: hashContent(source.content), byteCount: source.content.length, contentType: 'text',
+      })),
+      inputHash: run.inputHash,
       repositoryFacts,
       pullRequestFacts,
       repositoryFiles,
@@ -100,6 +124,23 @@ export async function publishDeterministicBaseline(job: ClaimedJob, signal: Abor
       evidence,
       evaluatedAt: new Date(),
     })
+    if (pullRequestSnapshot && snapshot.project.githubRepositoryFullName) {
+      await tx.pullRequestSnapshot.create({
+        data: {
+          projectId: job.projectId, analysisRunId: job.analysisRunId!,
+          repositoryFullName: snapshot.project.githubRepositoryFullName,
+          pullNumber: pullRequestSnapshot.pullNumber, headSha: pullRequestSnapshot.headSha,
+          baseSha: pullRequestSnapshot.baseSha, mergedCommitSha: pullRequestSnapshot.mergedCommitSha,
+          fileCount: pullRequestSnapshot.files.length, checkCount: pullRequestSnapshot.checks.length,
+          reviewCount: pullRequestSnapshot.reviews.length, collectorVersion: 'github-pr-fixed-sha-v1',
+          complete: pullRequestSnapshot.complete, diagnostics: pullRequestSnapshot.diagnostics as Prisma.InputJsonValue,
+          observedAt: new Date(),
+          files: { create: pullRequestSnapshot.files },
+          checks: { create: pullRequestSnapshot.checks },
+          reviews: { create: pullRequestSnapshot.reviews },
+        },
+      })
+    }
     if (dependencyMap) {
       await tx.artifactVersion.create({
         data: {

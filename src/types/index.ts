@@ -10,6 +10,12 @@ export interface KnowledgeDistillerInput {
   sources: { type: string; title: string; content: string }[]
 }
 
+export interface EvidenceCitation {
+  claim: string
+  evidenceIds: string[]
+  limitations: string
+}
+
 export interface KnowledgeDistillerOutput {
   mainTopic: string
   keyConcepts: string[]
@@ -19,6 +25,7 @@ export interface KnowledgeDistillerOutput {
   termsToUnderstand: string[]
   sourceEvidence: string[]
   recommendedNextAction: string
+  citations?: EvidenceCitation[]
 }
 
 export interface RepoContextAgentInput {
@@ -44,6 +51,7 @@ export interface RepoContextAgentOutput {
   missingItems: string[]
   risks: string[]
   recommendedFixes: string[]
+  citations?: EvidenceCitation[]
   collectorFacts?: import('@/lib/evidence/collectors').RepositoryCollectorFacts
 }
 
@@ -66,6 +74,7 @@ export interface WorkflowTask {
   suggestedAgentPrompt: string
   evidence: string[]
   completedAcIndices?: number[]
+  citations?: EvidenceCitation[]
 }
 
 export interface WorkflowPlannerOutput {
@@ -78,6 +87,7 @@ export interface WorkflowPlannerOutput {
   expectedFilesToChange: string[]
   reviewChecklist: string[]
   completedAcceptanceCriteria?: number[]
+  citations?: EvidenceCitation[]
 }
 
 export interface ReleaseReadinessInput {
@@ -97,6 +107,7 @@ export interface ReleaseReadinessOutput {
   releaseChecklist: string[]
   releaseNotesDraft: string
   recommendedFixesBeforeMerge: string[]
+  citations?: EvidenceCitation[]
   collectorFacts?: import('@/lib/evidence/collectors').PullRequestCollectorFacts
 }
 
@@ -115,6 +126,7 @@ export interface ProofOfWorkOutput {
   interviewExplanation: string
   linkedinPost: string
   missingProofItems: string[]
+  citations?: EvidenceCitation[]
 }
 
 export interface PipelineResult {

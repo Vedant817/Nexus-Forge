@@ -127,6 +127,7 @@ model Project {
   aiUsageEvents       AiUsageEvent[]
   analysisRuns        AnalysisRun[]        @relation("ProjectAnalysisRuns")
   activeAnalysisRun   AnalysisRun?         @relation("ActiveAnalysisRun", fields: [activeAnalysisRunId], references: [id], onDelete: SetNull)
+  pullRequestSnapshots PullRequestSnapshot[]
   jobs                Job[]
   artifacts           ArtifactVersion[]
   evidenceRecords     EvidenceRecord[]
@@ -145,6 +146,72 @@ model Project {
   @@unique([githubInstallationId, githubRepositoryId])
   @@index([ownerId, updatedAt])
   @@index([githubInstallationId])
+}
+
+model PullRequestSnapshot {
+  id                 String   @id @default(cuid())
+  projectId          String
+  analysisRunId      String   @unique
+  repositoryFullName String
+  pullNumber         Int
+  headSha            String
+  baseSha            String
+  mergedCommitSha    String?
+  fileCount          Int      @default(0)
+  checkCount         Int      @default(0)
+  reviewCount        Int      @default(0)
+  collectorVersion   String
+  complete           Boolean  @default(false)
+  diagnostics        Json
+  observedAt         DateTime
+  createdAt          DateTime @default(now())
+
+  project     Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  analysisRun AnalysisRun  @relation(fields: [analysisRunId], references: [id], onDelete: Cascade)
+  files       PullRequestFile[]
+  checks      PullRequestCheck[]
+  reviews     PullRequestReview[]
+
+  @@index([projectId, createdAt])
+}
+
+model PullRequestFile {
+  id         String @id @default(cuid())
+  snapshotId String
+  path       String
+  additions  Int    @default(0)
+  deletions  Int    @default(0)
+  status     String @default("collected")
+
+  snapshot PullRequestSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
+
+  @@unique([snapshotId, path])
+  @@index([snapshotId])
+}
+
+model PullRequestCheck {
+  id         String  @id @default(cuid())
+  snapshotId String
+  name       String
+  status     String
+  conclusion String?
+
+  snapshot PullRequestSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
+
+  @@index([snapshotId])
+}
+
+model PullRequestReview {
+  id          String  @id @default(cuid())
+  snapshotId  String
+  reviewId    String
+  state       String
+  submittedAt String?
+
+  snapshot PullRequestSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
+
+  @@unique([snapshotId, reviewId])
+  @@index([snapshotId])
 }
 
 model RepositorySnapshot {
@@ -715,6 +782,7 @@ model AnalysisRun {
   evidenceRecords    EvidenceRecord[]
   scorecards         Scorecard[]
   repositorySnapshot RepositorySnapshot?
+  pullRequestSnapshot PullRequestSnapshot?
 
   @@index([projectId, createdAt])
   @@index([ownerId, createdAt])

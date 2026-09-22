@@ -101,7 +101,8 @@ export function collectRunEvidence(input: {
   repositoryFullName?: string
   commitSha?: string
   project: { repoUrl: string; prUrl: string }
-  sources: Array<{ id: string; type: string; title: string }>
+  sources: Array<{ id: string; type: string; title: string; contentHash?: string; byteCount?: number; contentType?: string }>
+  inputHash?: string
   repositoryFacts?: RepositoryCollectorFacts
   pullRequestFacts?: PullRequestCollectorFacts
   repositoryFiles?: Array<{ path: string; contentHash: string }>
@@ -133,7 +134,12 @@ export function collectRunEvidence(input: {
     records.push({
       ...common,
       stableEvidenceId: `source:${source.id}`, evidenceType: 'source.snapshot', source: `source:${source.id}`,
-      collectorId: 'run-input-snapshot', facts: { sourceId: source.id.slice(0, 200), type: source.type.slice(0, 100), title: source.title.slice(0, 500) },
+      collectorId: 'run-input-snapshot',
+      facts: {
+        sourceId: source.id.slice(0, 200), type: source.type.slice(0, 100), title: source.title.slice(0, 500),
+        contentHash: (source.contentHash ?? '').slice(0, 128), byteCount: source.byteCount ?? 0,
+        contentType: (source.contentType ?? 'text').slice(0, 100), snapshotIdentity: (input.inputHash ?? '').slice(0, 128),
+      },
       provenance: 'SOURCE_SNAPSHOT', confidence: 'HIGH',
     })
   }

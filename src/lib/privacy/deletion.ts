@@ -50,6 +50,7 @@ async function purgeProjectContent(tx: Parameters<Parameters<typeof prisma.$tran
   await tx.scorecard.deleteMany({ where: { projectId } })
   await tx.evidenceRecord.deleteMany({ where: { projectId } })
   await tx.artifactVersion.deleteMany({ where: { projectId } })
+  await tx.pullRequestSnapshot.deleteMany({ where: { projectId } })
   await tx.repositorySnapshot.deleteMany({ where: { projectId } })
   await tx.job.deleteMany({ where: { projectId } })
   await tx.analysisRun.deleteMany({ where: { projectId } })
