@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { requireProjectAccess } from '@/lib/auth/authorization'
+import { requireTenantAction } from '@/lib/auth/tenancy'
 import { checkRateLimit } from '@/lib/security/rate-limit'
 import { ActiveAnalysisRunError, enqueueAnalysis } from '@/lib/execution/enqueue-analysis'
 
@@ -7,6 +8,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const { id } = await params
   const access = await requireProjectAccess(request.headers, id)
   if (!access.ok) return access.response
+  const tenant = await requireTenantAction(id, access.value.user.id, 'create_run')
+  if (!tenant.ok) return NextResponse.json({ error: tenant.error }, { status: tenant.status })
 
   const rateCheck = await checkRateLimit(`analysis:user:${access.value.user.id}:project:${id}`, {
     windowMs: 60_000,

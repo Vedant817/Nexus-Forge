@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import prisma from '@/lib/db/prisma'
 import { requireProjectAccess } from '@/lib/auth/authorization'
+import { requireTenantAction } from '@/lib/auth/tenancy'
 import { PRIVACY_ACK_VERSION } from '@/lib/ai/data-policy'
 import { logAudit } from '@/lib/security/audit-log'
 
@@ -19,6 +20,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   const { id } = await params
   const access = await requireProjectAccess(request.headers, id)
   if (!access.ok) return access.response
+  const tenant = await requireTenantAction(id, access.value.user.id, 'approve_inference')
+  if (!tenant.ok) return NextResponse.json({ error: tenant.error }, { status: tenant.status })
   const parsed = privacySchema.safeParse(await request.json().catch(() => null))
   if (!parsed.success) return NextResponse.json({ error: 'Invalid privacy update.' }, { status: 400 })
   const project = await prisma.project.findUnique({ where: { id } })

@@ -3,6 +3,7 @@ import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 import prisma from '@/lib/db/prisma'
 import { requireProjectAccess } from '@/lib/auth/authorization'
+import { requireTenantAction } from '@/lib/auth/tenancy'
 import { getGitHubAppMetadata, getGitHubUserIdentity } from '@/lib/github/onboarding'
 import {
   createGitHubOnboardingToken,
@@ -16,6 +17,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const { id } = await params
   const access = await requireProjectAccess(request.headers, id)
   if (!access.ok) return access.response
+  const tenant = await requireTenantAction(id, access.value.user.id, 'connect_repository')
+  if (!tenant.ok) return NextResponse.json({ error: tenant.error }, { status: tenant.status })
   if (!hasValidRequestOrigin(request)) return NextResponse.json({ error: 'Invalid request origin' }, { status: 403 })
 
   try {

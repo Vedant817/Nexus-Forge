@@ -134,6 +134,8 @@ model Project {
   githubOnboardingStates GitHubOnboardingState[]
   repositoryPermissionSnapshots RepositoryPermissionSnapshot[]
   secretOverrides SecretOverride[]
+  organizationId String?
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Restrict)
 
   @@unique([githubInstallationId, githubRepositoryFullName])
   @@unique([githubInstallationId, githubRepositoryId])
@@ -206,6 +208,8 @@ model User {
   analysisRuns  AnalysisRun[]
   jobs          Job[]
   githubOnboardingStates GitHubOnboardingState[]
+  organizations Organization[]
+  memberships   Membership[]
 
   @@unique([email])
   @@map("user")
@@ -348,6 +352,50 @@ model SecretOverride {
 
   @@unique([projectId, contentHash])
   @@index([projectId, createdAt])
+}
+
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  ownerId   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  owner       User         @relation(fields: [ownerId], references: [id], onDelete: Restrict)
+  memberships Membership[]
+  invitations Invitation[]
+  projects    Project[]
+
+  @@index([ownerId])
+}
+
+model Membership {
+  id             String   @id @default(cuid())
+  organizationId String
+  userId         String
+  role           String   @default("VIEWER")
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId])
+  @@index([userId])
+}
+
+model Invitation {
+  id             String    @id @default(cuid())
+  organizationId String
+  email          String
+  role           String    @default("VIEWER")
+  tokenHash      String    @unique
+  expiresAt      DateTime
+  acceptedAt     DateTime?
+  createdAt      DateTime  @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
 }
 
 model KnowledgeSummary {
