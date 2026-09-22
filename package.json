@@ -12,6 +12,8 @@
     "test:watch": "vitest",
     "audit:ci": "npm audit --omit=dev --audit-level=critical",
     "sbom": "npm sbom --sbom-format=cyclonedx",
+    "security:sweep": "tsx scripts/security-sweep.ts",
+    "security:sast": "tsx scripts/security-sast.ts",
     "test:integration": "tsx scripts/test-durable-postgres.ts",
     "backfill:project-owners": "tsx scripts/backfill-project-owners.ts",
     "worker:analysis": "tsx scripts/analysis-worker.ts",

@@ -63,6 +63,22 @@ export async function enqueueAnalysis(projectId: string, ownerId: string): Promi
   if (project.sources.some((source) => source.quarantineStatus === 'QUARANTINED')) {
     throw new Error('A quarantined source must be resolved or overridden before running analysis.')
   }
+  // Defense in depth: re-scan at admission so rows stored before enforcement cannot reach the model.
+  const { assessUntrustedContent, SECRET_SCANNER_VERSION: SCANNER_VERSION } = await import('@/lib/security/secret-scanner')
+  for (const source of project.sources) {
+    const assessment = assessUntrustedContent(source.rawContent, source.title || source.type)
+    if (assessment.quarantined) {
+      await prisma.source.update({
+        where: { id: source.id },
+        data: {
+          quarantineStatus: 'QUARANTINED',
+          quarantineReason: assessment.reasons.join(',').slice(0, 500),
+          scannerVersion: SCANNER_VERSION,
+        },
+      })
+      throw new Error('A source failed admission scanning and was quarantined. Resolve or override it before running analysis.')
+    }
+  }
   const inputHash = contentHash(inputSnapshot)
   const { getEffectiveEntitlement, assertEntitlementActive, reserveRunUsage } = await import('@/lib/billing/entitlements')
   const entitlement = await getEffectiveEntitlement({ organizationId: project.organizationId, userId: ownerId })

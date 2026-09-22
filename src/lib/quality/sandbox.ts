@@ -1,17 +1,39 @@
 import 'server-only'
 
-import { lstat, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { lstat, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { spawn } from 'node:child_process'
 import type { FileEdit } from '@/lib/agents/quality-agent-schemas'
 
-const ALLOWED_COMMANDS: Readonly<Record<string, readonly string[]>> = Object.freeze({
-  test: ['npm', 'test', '--', '--run'],
-  typecheck: ['npm', 'run', 'typecheck'],
-  lint: ['npm', 'run', 'lint'],
-  build: ['npm', 'run', 'build'],
+/** Exported for security tests: every command must run with --ignore-scripts. */
+export const ALLOWED_COMMANDS: Readonly<Record<string, readonly string[]>> = Object.freeze({
+  // --ignore-scripts comes before `run` so lifecycle scripts from a poisoned
+  // worktree can never execute inside the container.
+  test: ['npm', '--ignore-scripts', 'test', '--', '--run'],
+  typecheck: ['npm', '--ignore-scripts', 'run', 'typecheck'],
+  lint: ['npm', '--ignore-scripts', 'run', 'lint'],
+  build: ['npm', '--ignore-scripts', 'run', 'build'],
 })
+
+// Edit targets that could turn a proposed patch into executed code or escape
+// the sandbox policy. These require separate human approval, never auto-apply.
+const FORBIDDEN_EDIT_PATTERNS: readonly RegExp[] = [
+  /(^|\/)package\.json$/i,
+  /(^|\/)package-lock\.json$/i,
+  /(^|\/)pnpm-lock\.yaml$/i,
+  /(^|\/)yarn\.lock$/i,
+  /(^|\/)bun\.lockb?$/i,
+  /(^|\/)Dockerfile(\..*)?$/i,
+  /(^|\/)docker-compose\.ya?ml$/i,
+  /(^|\/)\.husky\//i,
+  /(^|\/)scripts\//i,
+  /\.config\.[a-z0-9]+$/i,
+]
+
+export function isForbiddenSandboxEditPath(relative: string): boolean {
+  return FORBIDDEN_EDIT_PATTERNS.some((pattern) => pattern.test(relative))
+}
 
 export type SandboxResult = {
   statuses: Array<{ command: string; status: 'PASS' | 'FAIL' | 'UNKNOWN'; exitCode: number | null; output: string }>
@@ -77,14 +99,23 @@ export async function resolveSandboxEditTarget(root: string, relative: string): 
 
 async function applyEdits(root: string, edits: readonly FileEdit[]): Promise<void> {
   if (edits.length > 100) throw new Error('Sandbox edit count exceeds 100.')
+  const resolvedRoot = await realpath(root)
   for (const edit of edits) {
     const relative = validateSandboxRelativePath(edit.filePath)
+    if (isForbiddenSandboxEditPath(relative)) {
+      throw new Error(`Sandbox edit target requires separate human approval and is never auto-applied: ${relative}`)
+    }
     if (edit.oldString.length > 200_000 || edit.newString.length > 200_000) throw new Error('Sandbox edit exceeds text bounds.')
     const target = await resolveSandboxEditTarget(root, relative)
     const content = await readFile(target, 'utf8')
     const first = content.indexOf(edit.oldString)
     if (first < 0 || content.indexOf(edit.oldString, first + 1) >= 0) throw new Error(`Edit target must match exactly once: ${relative}`)
     await writeFile(target, `${content.slice(0, first)}${edit.newString}${content.slice(first + edit.oldString.length)}`, 'utf8')
+    // TOCTOU mitigation: re-resolve after the write and confirm containment.
+    const finalPath = await realpath(target).catch(() => null)
+    if (!finalPath || (finalPath !== resolvedRoot && !finalPath.startsWith(`${resolvedRoot}${path.sep}`))) {
+      throw new Error(`Sandbox edit escaped the worktree: ${relative}`)
+    }
   }
 }
 

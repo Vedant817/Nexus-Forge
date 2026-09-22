@@ -11,7 +11,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     select: { id: true, admissionManifest: true, admissionDigest: true, processingMode: true, pipelineVersion: true, modelConfig: true },
   })
   if (!run) return NextResponse.json({ error: 'Run not found' }, { status: 404 })
+  const safeRunId = run.id.replace(/[^A-Za-z0-9_-]/g, '').slice(0, 64) || 'run'
   return NextResponse.json(run, {
-    headers: { 'Content-Disposition': `attachment; filename="manifest-${runId}.json"` },
+    headers: { 'Content-Disposition': `attachment; filename="manifest-${safeRunId}.json"` },
   })
 }

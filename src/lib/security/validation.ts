@@ -24,6 +24,19 @@ export const updateProjectSchema = z.object({
   status: z.enum(['idle', 'has_sources', 'analyzing', 'completed', 'error']).optional(),
 }).strict()
 
+const UPLOAD_FILENAME_PATTERN = /^[A-Za-z0-9._-]{1,100}\.(txt|md)$/
+const UNSAFE_TITLE_CHARS = /[\u0000-\u001f\u007f-\u009f\u202A-\u202E\u2066-\u2069\u200E\u200F]/
+
+/** Server-side upload filename policy. Browser checks are not a security boundary. */
+export function isAllowedUploadFilename(title: string): boolean {
+  return UPLOAD_FILENAME_PATTERN.test(title) && !UNSAFE_TITLE_CHARS.test(title)
+}
+
+/** Rejects binary/control-character payloads that text pipelines cannot handle safely. */
+export function containsUnsafeContentChars(content: string): boolean {
+  return content.includes('\0') || UNSAFE_TITLE_CHARS.test(content.slice(0, 1000))
+}
+
 export const createSourceSchema = z.object({
   type: z.enum(['transcript', 'blog', 'notes', 'agent_log', 'docs', 'file']),
   title: z.string().max(200).default(''),

@@ -4,6 +4,7 @@ const mocks = vi.hoisted(() => ({
   findProject: vi.fn(),
   transaction: vi.fn(),
   findActive: vi.fn(),
+  updateSource: vi.fn(),
 }))
 vi.mock('@/lib/db/prisma', () => ({
   default: {
@@ -12,6 +13,7 @@ vi.mock('@/lib/db/prisma', () => ({
     pilotEntitlement: { findUnique: vi.fn(async () => null) },
     entitlementSnapshot: { findFirst: vi.fn(async () => null) },
     profileRevision: { findFirst: vi.fn(async () => null) },
+    source: { update: mocks.updateSource },
     $transaction: mocks.transaction,
   },
 }))
@@ -43,15 +45,15 @@ describe('analysis enqueue concurrency mapping', () => {
   })
 
   it('redacts every user-controlled snapshot field and never stores a raw-source hash', async () => {
-    const secret = `gsk_${'a'.repeat(32)}`
     mocks.findProject.mockResolvedValue({
-      id: 'project-1', ownerId: 'user-1', name: secret, goal: secret,
-      repoUrl: `https://github.com/owner/repo?token=${secret}`, prUrl: '',
-      sources: [{ id: 'source-1', type: secret, title: secret, rawContent: secret, quarantineStatus: 'CLEAR' }],
+      id: 'project-1', ownerId: 'user-1', name: 'Project', goal: 'Goal',
+      repoUrl: 'https://github.com/owner/repo', prUrl: '',
+      sources: [{ id: 'source-1', type: 'notes', title: 'Note', rawContent: 'ordinary content', quarantineStatus: 'CLEAR' }],
       githubRepositoryPrivate: false, externalInferenceEnabled: true,
       externalInferenceAuthorizedBy: 'user-1', externalInferenceAuthorizedAt: new Date(),
       ingestionSuspendedAt: null, inferenceSuspendedAt: null,
     })
+    mocks.updateSource.mockResolvedValue({})
     let createData: Record<string, unknown> | undefined
     mocks.transaction.mockImplementation(async (callback) => callback({
       analysisRun: { create: vi.fn(async ({ data }) => { createData = data; return { id: 'run-1' } }) },
@@ -61,9 +63,28 @@ describe('analysis enqueue concurrency mapping', () => {
 
     await enqueueAnalysis('project-1', 'user-1')
     const serialized = JSON.stringify(createData)
-    expect(serialized).not.toContain(secret)
     expect(serialized).not.toContain('originalContentHash')
-    expect(serialized).toContain('[REDACTED]')
+    expect(mocks.updateSource).not.toHaveBeenCalled()
+  })
+
+  it('quarantines secret-bearing sources at admission and refuses to enqueue', async () => {
+    const secret = `gsk_${'a'.repeat(32)}`
+    mocks.findProject.mockResolvedValue({
+      id: 'project-1', ownerId: 'user-1', name: 'Project', goal: 'Goal',
+      repoUrl: 'https://github.com/owner/repo', prUrl: '',
+      sources: [{ id: 'source-1', type: 'notes', title: 'Note', rawContent: `api key ${secret}`, quarantineStatus: 'CLEAR' }],
+      githubRepositoryPrivate: false, externalInferenceEnabled: true,
+      externalInferenceAuthorizedBy: 'user-1', externalInferenceAuthorizedAt: new Date(),
+      ingestionSuspendedAt: null, inferenceSuspendedAt: null,
+    })
+    mocks.updateSource.mockResolvedValue({})
+
+    await expect(enqueueAnalysis('project-1', 'user-1')).rejects.toThrow(/quarantined/)
+    expect(mocks.updateSource).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: 'source-1' },
+      data: expect.objectContaining({ quarantineStatus: 'QUARANTINED' }),
+    }))
+    expect(mocks.transaction).not.toHaveBeenCalled()
   })
 
   it('rejects enqueue when the configured model is outside the explicit allowlist', async () => {

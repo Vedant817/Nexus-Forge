@@ -1,3 +1,5 @@
+import { checkPromptInjection } from './prompt-injection-guard'
+
 export const SECRET_SCANNER_VERSION = 'secret-scanner-v1'
 
 export type SecretFinding = {
@@ -21,7 +23,12 @@ const STRUCTURED_PATTERNS: Array<{ kind: string; pattern: RegExp }> = [
   { kind: 'google_key', pattern: /AIza[0-9A-Za-z_-]{35}/ },
   { kind: 'gitlab_token', pattern: /glpat-[A-Za-z0-9_-]{20,}/ },
   { kind: 'npm_token', pattern: /npm_[A-Za-z0-9]{30,}/ },
+  { kind: 'npm_authtoken', pattern: /\/\/registry\.npmjs\.org\/:_authToken\s*=\s*[^\s'";]+/i },
   { kind: 'jwt', pattern: /eyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}/ },
+  { kind: 'aws_secret_key', pattern: /aws_secret_access_key\s*[:=]\s*[A-Za-z0-9/+=]{40}/i },
+  { kind: 'heroku_key', pattern: /heroku[a-f0-9]{32}/i },
+  { kind: 'sendgrid_key', pattern: /SG\.[A-Za-z0-9_-]{22}\.[A-Za-z0-9_-]{43}/ },
+  { kind: 'discord_webhook', pattern: /https:\/\/discord(?:app)?\.com\/api\/webhooks\/[0-9]+\/[A-Za-z0-9_-]+/ },
   { kind: 'stripe_live_key', pattern: /(?:pk|sk)_live_[A-Za-z0-9]{24,}/ },
   { kind: 'aws_access_key', pattern: /AKIA[0-9A-Z]{16}/ },
   { kind: 'generic_assignment', pattern: /(?:api[-_]?key|apikey|client[-_]?secret|access[-_]?token|auth[-_]?token|secret|token|password|passwd|private[-_]?key|database[-_]?url|db[-_]?url)\s*[:=]\s*(?:"[^"\r\n]{8,}"|'[^'\r\n]{8,}'|[^\s,;]{12,})/i },
@@ -70,7 +77,9 @@ export function shannonEntropy(value: string): number {
   return entropy
 }
 
-const ENTROPY_TOKEN_PATTERN = /[A-Za-z0-9_\-+/=]{20,}/g
+// `=` is excluded from the token body (base64 padding only trails) so that
+// `NAME=value` pairs cannot fuse into one high-entropy "token".
+const ENTROPY_TOKEN_PATTERN = /[A-Za-z0-9_\-+/]{20,}={0,2}/g
 
 export function scanSecretContent(content: string, path?: string): SecretFinding[] {
   const findings: SecretFinding[] = []
@@ -117,4 +126,34 @@ export function scanSecretContent(content: string, path?: string): SecretFinding
 
 export function hasBlockingFinding(findings: SecretFinding[]): boolean {
   return findings.some((finding) => finding.severity === 'high' || finding.kind === 'high_risk_path' || finding.kind === 'high_entropy_token')
+}
+
+export type UntrustedContentAssessment = {
+  findings: SecretFinding[]
+  injectionSeverity: 'none' | 'low' | 'medium' | 'high'
+  injectionPatterns: string[]
+  quarantined: boolean
+  reasons: string[]
+}
+
+/**
+ * Single enforcement point for untrusted text: secrets and high-severity
+ * prompt injection both quarantine. Used at intake and re-checked at enqueue
+ * so rows stored before enforcement cannot reach the model.
+ */
+export function assessUntrustedContent(content: string, path?: string): UntrustedContentAssessment {
+  const findings = scanSecretContent(content, path)
+  const injection = checkPromptInjection(content)
+  const injectionBlocked = injection.severity === 'high'
+  const quarantined = hasBlockingFinding(findings) || injectionBlocked
+  return {
+    findings,
+    injectionSeverity: injection.severity,
+    injectionPatterns: injection.matchedPatterns,
+    quarantined,
+    reasons: [
+      ...new Set(findings.map((finding) => finding.kind)),
+      ...(injectionBlocked ? [`prompt-injection:${injection.matchedPatterns.slice(0, 3).join('|')}`] : []),
+    ],
+  }
 }

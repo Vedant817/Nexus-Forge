@@ -35,6 +35,9 @@ export function verifyGitHubOnboardingToken(token: string): { stateId: string; t
     return null
   }
   if (supplied.length !== expected.length || !timingSafeEqual(supplied, expected)) return null
+  // Reject non-canonical encodings: the trailing base64url bits are padding and
+  // decode identically, so without this check some last-character forgeries verify.
+  if (supplied.toString('base64url') !== signature) return null
   return { stateId, tokenHash: hashGitHubOnboardingToken(token) }
 }
 

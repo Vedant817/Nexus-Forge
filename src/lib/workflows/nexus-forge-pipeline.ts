@@ -582,10 +582,14 @@ export async function executeAnalysisJob(job: ClaimedJob, leaseSignal: AbortSign
           }
           await assertExecutionAllowed(job, signal)
           if (snapshot.project.githubInstallationId || snapshot.project.githubRepositoryId) await assertCurrentGitHubBinding()
+          const treePaths = repoContext.tree.slice(0, 2_000)
+          const treeOmitted = repoContext.tree.length - treePaths.length
           const explanation = await runner.runRepoContextAgent({
             repoUrl: snapshot.project.repoUrl,
             readme: repoContext.readme,
-            folderTree: repoContext.tree.join('\n'),
+            folderTree: treeOmitted > 0
+              ? `${treePaths.join('\n')}\n...[${treeOmitted} further paths omitted: untrusted content budget]`
+              : treePaths.join('\n'),
             packageJson: repoContext.packageJson,
             requirementsTxt: repoContext.requirementsTxt,
             pyprojectToml: repoContext.pyprojectToml,

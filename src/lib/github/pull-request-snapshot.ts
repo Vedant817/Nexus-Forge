@@ -3,6 +3,12 @@ import 'server-only'
 import { createInstallationToken } from './app-auth'
 import { githubJson, githubPaginate } from './http'
 import { parseGitHubPrUrl } from '@/lib/security/url-safety'
+import { checkPromptInjection } from '@/lib/security/prompt-injection-guard'
+import { hasBlockingFinding, scanSecretContent } from '@/lib/security/secret-scanner'
+import { redactSecrets } from '@/lib/security/secret-redaction'
+
+const MAX_PR_DIFF_BYTES = 50_000
+const MAX_PR_DIFF_FILES = 200
 
 export type PullRequestCheck = { id: string; name: string; status: string; conclusion: string | null }
 export type PullRequestReview = { id: string; state: string; submittedAt: string | null }
@@ -41,15 +47,28 @@ export async function collectPullRequestContext(input: {
     if (!result.complete || checks.length >= 5_000) { checksComplete = false; break }
   }
   const changedFiles = filesResult.items.map((file) => file.filename)
-  let diff = filesResult.items.map((file) => file.patch ?? '').filter(Boolean).join('\n\n---\n\n')
-  if (diff.length > 50_000) diff = `${diff.slice(0, 50_000)}\n...[diff bounded]`
+  const diffFiles = filesResult.items.slice(0, MAX_PR_DIFF_FILES)
+  let diff = diffFiles.map((file) => file.patch ?? '').filter(Boolean).join('\n\n---\n\n')
+  if (filesResult.items.length > MAX_PR_DIFF_FILES) diff += `\n...[${filesResult.items.length - MAX_PR_DIFF_FILES} further files omitted: untrusted content budget]`
+  if (diff.length > MAX_PR_DIFF_BYTES) diff = `${diff.slice(0, MAX_PR_DIFF_BYTES)}\n...[diff bounded]`
   const diagnostics: string[] = []
   const fileListComplete = filesResult.complete && pr.changed_files <= 3_000 && changedFiles.length >= pr.changed_files
   if (!fileListComplete) diagnostics.push('Pull request file list is incomplete or exceeded the 3,000-file GitHub cap.')
   if (!reviewsResult.complete) diagnostics.push('Pull request review collection reached its configured bound.')
   if (!checksComplete) diagnostics.push('Check suite/run collection is incomplete or reached a GitHub/configured cap.')
+  // Parity with the repository collector: redact, scan, and flag untrusted PR text before it reaches the model.
+  const title = redactSecrets(pr.title).slice(0, 1_000)
+  const body = redactSecrets(pr.body ?? '').slice(0, 20_000)
+  diff = redactSecrets(diff)
+  const prFindings = scanSecretContent(`${title}\n${body}\n${diff.slice(0, 20_000)}`, 'pull-request')
+  if (hasBlockingFinding(prFindings)) {
+    diagnostics.push(`Pull request text quarantined by secret scanner: ${[...new Set(prFindings.map((finding) => finding.kind))].join(',').slice(0, 200)}`)
+  }
+  if (checkPromptInjection(body).severity === 'high') {
+    diagnostics.push('Pull request body contains high-severity instruction patterns; treat as untrusted data only.')
+  }
   return {
-    title: pr.title, body: pr.body ?? '', changedFiles, diff,
+    title, body, changedFiles, diff,
     additions: filesResult.items.reduce((sum, file) => sum + Math.max(0, file.additions), 0),
     deletions: filesResult.items.reduce((sum, file) => sum + Math.max(0, file.deletions), 0),
     headSha: pr.head.sha.toLowerCase(), baseSha: pr.base.sha.toLowerCase(), mergedCommitSha: pr.merge_commit_sha?.toLowerCase() ?? null,
