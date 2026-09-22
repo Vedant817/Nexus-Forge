@@ -16,6 +16,10 @@ export function proxy(request: NextRequest) {
       }
     }
   }
+  if (request.nextUrl.pathname.startsWith('/api/admin/')) {
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? null
+    if (!isIpAllowed(ip)) return NextResponse.json({ error: 'IP not allowlisted' }, { status: 403 })
+  }
   const path = request.nextUrl.pathname
   const isProtectedPage = path === '/projects' || path.startsWith('/projects/')
   const hasSessionCookie = Boolean(getSessionCookie(request))
@@ -29,6 +33,17 @@ export function proxy(request: NextRequest) {
   }
 
   return NextResponse.next()
+}
+
+function isIpAllowed(ip: string | null): boolean {
+  const allowlist = (process.env.IP_ALLOWLIST ?? '').split(',').map((entry) => entry.trim()).filter(Boolean)
+  if (!allowlist.length) return true
+  if (!ip) return false
+  return allowlist.some((entry) => ip === entry || ip.startsWith(entry.replace(/:\d+$/, '')))
+}
+
+export function isAdminIpAllowed(ip: string | null): boolean {
+  return isIpAllowed(ip)
 }
 
 export const config = {

@@ -447,6 +447,13 @@ model Organization {
   deletionRequests DeletionRequest[]
   policyPacks PolicyPack[]
   repositoryGroups RepositoryGroup[]
+  verifiedDomains VerifiedDomain[]
+  customRoles CustomRole[]
+  separationPolicies SeparationOfDuty[]
+  groupMappings GroupMapping[]
+  retentionPolicy RetentionPolicy?
+  managedKey CustomerManagedKey?
+  supportGrants SupportAccessGrant[]
 
   @@index([ownerId])
 }
@@ -786,6 +793,91 @@ model SandboxKey {
   keyMaterial String?
   retiredAt  DateTime?
   createdAt  DateTime  @default(now())
+}
+
+model VerifiedDomain {
+  id             String    @id @default(cuid())
+  organizationId String
+  domain         String
+  token          String
+  verifiedAt     DateTime?
+  createdAt      DateTime  @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, domain])
+}
+
+model CustomRole {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  permissions    Json     @default("[]")
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, name])
+}
+
+model SeparationOfDuty {
+  id             String   @id @default(cuid())
+  organizationId String
+  actionA        String
+  actionB        String
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, actionA, actionB])
+}
+
+model GroupMapping {
+  id             String   @id @default(cuid())
+  organizationId String
+  idpGroup       String
+  role           String
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, idpGroup])
+}
+
+model RetentionPolicy {
+  id             String   @id @default(cuid())
+  organizationId String   @unique
+  auditDays      Int      @default(365)
+  evidenceDays   Int      @default(365)
+  backupDays     Int      @default(14)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+}
+
+model CustomerManagedKey {
+  id             String    @id @default(cuid())
+  organizationId String    @unique
+  keyRef         String
+  status         String    @default("active")
+  createdAt      DateTime  @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+}
+
+model SupportAccessGrant {
+  id             String    @id @default(cuid())
+  organizationId String
+  grantedBy      String
+  reason         String
+  expiresAt      DateTime
+  revokedAt      DateTime?
+  createdAt      DateTime  @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, createdAt])
 }
 
 model VerificationRequest {

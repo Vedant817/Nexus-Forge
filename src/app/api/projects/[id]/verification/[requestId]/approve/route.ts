@@ -14,6 +14,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (!verification || !verification.patchHash || !verification.manifestHash) {
     return NextResponse.json({ error: 'Verification request is not approvable.' }, { status: 400 })
   }
+  const project = await prisma.project.findUnique({ where: { id }, select: { organizationId: true } })
+  const { checkSeparationOfDuty } = await import('@/lib/enterprise/sod')
+  const sod = await checkSeparationOfDuty({ organizationId: project?.organizationId, actionA: 'verification.propose', actionB: 'verification.approve', actorA: verification.createdBy, actorB: access.value.user.id })
+  if (!sod.ok) return NextResponse.json({ error: sod.error }, { status: 403 })
   const updated = await prisma.verificationRequest.updateMany({
     where: { id: requestId, projectId: id, status: 'PROPOSED' },
     data: { status: 'APPROVED' },
