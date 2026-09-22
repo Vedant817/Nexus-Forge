@@ -9,6 +9,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   const { id } = await params
   const access = await requireProjectAccess(request.headers, id)
   if (!access.ok) return access.response
+  const { checkRateLimit } = await import('@/lib/security/rate-limit')
+  const rateCheck = await checkRateLimit(`export:user:${access.value.user.id}`, { windowMs: 60_000, maxRequests: 20 })
+  if (!rateCheck.allowed) return NextResponse.json({ error: 'Export rate limit exceeded.' }, { status: 429 })
 
   try {
     const workflow = await prisma.workflow.findUnique({ where: { projectId: id }, include: { project: { select: { activeAnalysisRunId: true } } } })

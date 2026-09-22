@@ -2,9 +2,13 @@ import { NextResponse } from 'next/server'
 import prisma from '@/lib/db/prisma'
 import { redactSecrets } from '@/lib/security/secret-redaction'
 import { createProjectSchema } from '@/lib/security/validation'
+import { readBoundedJson } from '@/lib/security/body-limit'
+import { checkRateLimit } from '@/lib/security/rate-limit'
 import { logAudit } from '@/lib/security/audit-log'
 import { requireSession } from '@/lib/auth/authorization'
 import { resolveRepositoryIdentity } from '@/lib/github/repository-identity'
+
+const MAX_PROJECTS_PER_USER = 50
 
 export async function GET(request: Request) {
   const session = await requireSession(request.headers)
@@ -31,9 +35,13 @@ export async function POST(request: Request) {
   const session = await requireSession(request.headers)
   if (!session.ok) return session.response
 
+  const rateCheck = await checkRateLimit(`projects:user:${session.value.id}`, { windowMs: 60_000, maxRequests: 10 })
+  if (!rateCheck.allowed) return NextResponse.json({ error: 'Rate limit exceeded.' }, { status: 429 })
+
   try {
-    const body = await request.json()
-    const parsed = createProjectSchema.safeParse(body)
+    const bounded = await readBoundedJson(request, 64 * 1024)
+    if (!bounded.ok) return bounded.response
+    const parsed = createProjectSchema.safeParse(bounded.value)
     if (!parsed.success) {
       return NextResponse.json({ error: 'Validation failed', details: parsed.error.issues }, { status: 400 })
     }
@@ -43,6 +51,11 @@ export async function POST(request: Request) {
     const identity = resolveRepositoryIdentity(repoUrl, prUrl)
     if (!identity.ok) {
       return NextResponse.json({ error: identity.error }, { status: 400 })
+    }
+
+    const existingCount = await prisma.project.count({ where: { ownerId: session.value.id } })
+    if (existingCount >= MAX_PROJECTS_PER_USER) {
+      return NextResponse.json({ error: 'Project limit reached for this workspace.' }, { status: 409 })
     }
 
     const project = await prisma.project.create({

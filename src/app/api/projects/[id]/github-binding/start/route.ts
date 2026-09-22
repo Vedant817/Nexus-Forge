@@ -19,6 +19,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (!access.ok) return access.response
   const tenant = await requireTenantAction(id, access.value.user.id, 'connect_repository')
   if (!tenant.ok) return NextResponse.json({ error: tenant.error }, { status: tenant.status })
+  const { checkRateLimit } = await import('@/lib/security/rate-limit')
+  const rateCheck = await checkRateLimit(`github-binding:user:${access.value.user.id}`, { windowMs: 60_000, maxRequests: 10 })
+  if (!rateCheck.allowed) return NextResponse.json({ error: 'Rate limit exceeded.' }, { status: 429 })
   if (!hasValidRequestOrigin(request)) return NextResponse.json({ error: 'Invalid request origin' }, { status: 403 })
 
   try {

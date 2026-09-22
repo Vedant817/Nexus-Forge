@@ -430,6 +430,18 @@ model DeletionRequest {
   @@index([projectId, status])
 }
 
+model IdempotencyKey {
+  id        String   @id @default(cuid())
+  key       String
+  userId    String
+  projectId String
+  runId     String
+  createdAt DateTime @default(now())
+
+  @@unique([key, userId, projectId])
+  @@index([projectId, createdAt])
+}
+
 model KnowledgeSummary {
   id                     String   @id @default(cuid())
   projectId              String   @unique

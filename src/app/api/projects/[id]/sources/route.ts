@@ -42,8 +42,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       return NextResponse.json({ error: `Maximum of ${config.MAX_SOURCES_PER_PROJECT} sources per project reached.` }, { status: 400 })
     }
 
-    const body = await request.json()
-    const parsed = createSourceSchema.safeParse(body)
+    const bounded = await (await import('@/lib/security/body-limit')).readBoundedJson(request, 256 * 1024)
+    if (!bounded.ok) return bounded.response
+    const parsed = createSourceSchema.safeParse(bounded.value)
     if (!parsed.success) {
       return NextResponse.json({ error: 'Validation failed', details: parsed.error.issues }, { status: 400 })
     }

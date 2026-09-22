@@ -17,6 +17,11 @@ const mocks = vi.hoisted(() => {
 vi.mock('@/lib/auth/authorization', () => ({ requireProjectAccess: mocks.requireProjectAccess }))
 vi.mock('@/lib/security/rate-limit', () => ({ checkRateLimit: mocks.checkRateLimit }))
 vi.mock('@/lib/ai/inference-policy', () => ({ isInferenceEnabled: () => true }))
+vi.mock('@/lib/db/prisma', () => ({
+  default: {
+    idempotencyKey: { findUnique: vi.fn(async () => null), create: vi.fn(async () => ({})) },
+  },
+}))
 vi.mock('@/lib/auth/tenancy', () => ({ requireTenantAction: vi.fn(async () => ({ ok: true, role: 'OWNER' })) }))
 vi.mock('@/lib/execution/enqueue-analysis', () => ({
   ActiveAnalysisRunError: mocks.ActiveAnalysisRunError,
