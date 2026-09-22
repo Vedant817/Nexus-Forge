@@ -75,6 +75,7 @@ async function main(): Promise<void> {
     assert(names.includes('20260812160000_evidence_scorecards'), 'evidence scorecard migration was applied in order')
     assert(names.includes('20260812123000_llm_boundary_telemetry'), 'LLM telemetry migration was applied in order')
     assert(names.includes('20260922190000_github_authority_safe_onboarding'), 'GitHub authority-safe onboarding migration was applied in order')
+    assert(names.includes('20260922210000_workflow_human_overlay'), 'workflow human-overlay migration was applied in order')
 
     const ownerId = await createUser(client)
 
@@ -92,6 +93,18 @@ async function main(): Promise<void> {
     assert(permissionRows.rows[0].count === 0, 'permission snapshots cascade when a project is deleted')
 
     const uniqueProject = await createProject(client, ownerId)
+    await client.query('INSERT INTO "Workflow" ("id","projectId","tasksJson","acceptanceCriteria","completedAcceptanceCriteria","humanState","humanEdited","revision","createdAt","updatedAt") VALUES ($1,$2,$3,$4,\'[]\', $5::jsonb,true,1,NOW(),NOW())', [
+      `workflow-${randomUUID()}`, uniqueProject,
+      JSON.stringify([{ id: 'generated-old', title: 'Old', description: '', status: 'planned', priority: 'medium', reason: '', acceptanceCriteria: [], suggestedAgentPrompt: '', evidence: [] }]),
+      JSON.stringify(['Old criterion']),
+      JSON.stringify({ version: 1, baseAnalysisRunId: null, tasks: [{ id: 'human-task', title: 'Maintained', description: '', status: 'done', priority: 'high', reason: '', acceptanceCriteria: [], suggestedAgentPrompt: '', evidence: [] }], acceptanceCriteria: ['Maintained criterion'], completedAcceptanceCriteria: [0] }),
+    ])
+    const updateWorkflow = () => pool.query('UPDATE "Workflow" SET "revision"="revision"+1,"tasksJson"=$2,"updatedAt"=NOW() WHERE "projectId"=$1 AND "revision"=1 RETURNING "revision"', [uniqueProject, JSON.stringify([{ id: 'generated-new' }])])
+    const [firstWorkflowUpdate, secondWorkflowUpdate] = await Promise.all([updateWorkflow(), updateWorkflow()])
+    assert(firstWorkflowUpdate.rowCount! + secondWorkflowUpdate.rowCount! === 1, 'workflow revision prevents concurrent lost updates')
+    const preservedWorkflow = await client.query('SELECT "humanState","revision" FROM "Workflow" WHERE "projectId"=$1', [uniqueProject])
+    assert(preservedWorkflow.rows[0].humanState.tasks[0].id === 'human-task', 'generated workflow updates preserve human-maintained state')
+    assert(preservedWorkflow.rows[0].revision === 2, 'successful workflow update increments the revision')
     const firstRun = await createRun(client, uniqueProject, ownerId)
     let uniqueViolation = false
     try { await createRun(client, uniqueProject, ownerId) } catch (error) {

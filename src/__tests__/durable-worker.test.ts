@@ -122,7 +122,12 @@ describe('durable SQL seam', () => {
     expect(source).toContain('run."status" = \'SUCCEEDED\' OR delivery."status" = \'processed\'')
     expect(source).toContain('run."status" = \'CANCEL_REQUESTED\'')
     expect(source).toContain('FROM failed_runs')
+    expect(source).toContain('failed_running_stages AS')
+    expect(source).toContain('cancelled_pending_stages AS')
+    expect(source).toContain('"failureCode" = \'LeaseExpiredAfterMaxAttempts\'')
     expect(source).toContain('delivery."status" <> \'processed\'')
+    const pipelineSource = readFileSync(new URL('../lib/workflows/nexus-forge-pipeline.ts', import.meta.url), 'utf8')
+    expect(pipelineSource).toContain('SELECT "id" FROM "Workflow" WHERE "projectId" = ${job.projectId} FOR UPDATE')
   })
 })
 

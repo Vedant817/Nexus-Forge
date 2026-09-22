@@ -5,6 +5,7 @@ import { useParams } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { ScorecardDetails } from "@/components/scorecard-details"
+import { fetchApiJson } from "@/lib/client/api-response"
 
 interface ProofPageData {
   portfolioSummary: string
@@ -23,16 +24,17 @@ export default function ProofPage() {
   const params = useParams()
   const [data, setData] = useState<ProofPageData | null>(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState("")
 
   useEffect(() => {
-    fetch(`/api/projects/${params.id}/proof-pack`)
-      .then(r => r.json())
+    fetchApiJson<ProofPageData>(`/api/projects/${params.id}/proof-pack`, undefined, "Unable to load proof pack.")
       .then(d => setData(d))
-      .catch(() => {})
+      .catch((cause: Error) => setError(cause.message))
       .finally(() => setLoading(false))
   }, [params.id])
 
   if (loading) return <div className="flex items-center justify-center min-h-[60vh]"><div className="text-muted-foreground">Loading...</div></div>
+  if (error) return <div className="flex items-center justify-center min-h-[60vh]"><div className="text-destructive">{error}</div></div>
   if (!data) return <div className="flex items-center justify-center min-h-[60vh]"><div className="text-muted-foreground">No proof pack yet. Run analysis first.</div></div>
 
   const missing = safeParse(data.missingProofItems) as string[]
@@ -46,7 +48,7 @@ export default function ProofPage() {
           <p className="text-muted-foreground mt-1">Portfolio-ready documentation of your work</p>
         </div>
         <Button
-          onClick={() => window.open(`/api/projects/${params.id}/export/proof-pack.md`, "_blank")}
+          onClick={() => window.open(`/api/projects/${params.id}/export/proof-pack`, "_blank")}
         >
           Export Markdown
         </Button>

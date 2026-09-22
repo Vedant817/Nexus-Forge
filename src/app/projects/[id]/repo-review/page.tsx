@@ -5,6 +5,7 @@ import { useParams } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { ScorecardDetails } from "@/components/scorecard-details"
+import { fetchApiJson } from "@/lib/client/api-response"
 
 interface RepoReviewPageData {
   maturityScore: number
@@ -24,16 +25,17 @@ export default function RepoReviewPage() {
   const params = useParams()
   const [data, setData] = useState<RepoReviewPageData | null>(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState("")
 
   useEffect(() => {
-    fetch(`/api/projects/${params.id}/repo-analysis`)
-      .then(r => r.json())
+    fetchApiJson<RepoReviewPageData>(`/api/projects/${params.id}/repo-analysis`, undefined, "Unable to load repository review.")
       .then(d => setData(d))
-      .catch(() => {})
+      .catch((cause: Error) => setError(cause.message))
       .finally(() => setLoading(false))
   }, [params.id])
 
   if (loading) return <div className="flex items-center justify-center min-h-[60vh]"><div className="text-muted-foreground">Loading...</div></div>
+  if (error) return <div className="flex items-center justify-center min-h-[60vh]"><div className="text-destructive">{error}</div></div>
   if (!data) return <div className="flex items-center justify-center min-h-[60vh]"><div className="text-muted-foreground">No repo analysis yet. Add a repo URL and run analysis.</div></div>
 
   const stack = safeParse(data.detectedStack) as string[]

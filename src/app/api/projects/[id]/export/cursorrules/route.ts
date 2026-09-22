@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import prisma from '@/lib/db/prisma'
 import type { WorkflowTask } from '@/types'
 import { requireProjectAccess } from '@/lib/auth/authorization'
+import { resolveWorkflowState } from '@/lib/workflows/workflow-state'
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -29,7 +30,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     }
 
     if (workflow?.tasksJson) {
-      const tasks = JSON.parse(workflow.tasksJson) as WorkflowTask[]
+      const tasks = resolveWorkflowState(workflow, project.activeAnalysisRunId).tasks as WorkflowTask[]
       const inProgressTasks = tasks.filter((task) => task.status === 'in_progress')
       
       cursorrulesContent += `## Current Active Tasks\n`

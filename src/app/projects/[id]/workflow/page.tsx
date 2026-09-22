@@ -1,12 +1,13 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useParams } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd"
 import { Trash2, CheckCircle2, Circle, Download, Code2 } from "lucide-react"
+import { ApiResponseError, fetchApiJson } from "@/lib/client/api-response"
 
 interface WorkflowTask {
   id: string
@@ -18,6 +19,7 @@ interface WorkflowTask {
   acceptanceCriteria: string[]
   completedAcIndices?: number[]
   suggestedAgentPrompt: string
+  evidence?: string[]
 }
 
 interface WorkflowPageData {
@@ -27,6 +29,8 @@ interface WorkflowPageData {
   acceptanceCriteria: string
   completedAcceptanceCriteria: string
   expectedFiles: string
+  revision: number
+  generatedUpdateAvailable: boolean
 }
 
 export default function WorkflowPage() {
@@ -37,22 +41,25 @@ export default function WorkflowPage() {
   const [loading, setLoading] = useState(true)
   const [selectedTask, setSelectedTask] = useState<WorkflowTask | null>(null)
   const [saving, setSaving] = useState(false)
+  const [error, setError] = useState("")
+  const saveInFlight = useRef(false)
 
   useEffect(() => {
-    fetch(`/api/projects/${params.id}/workflow`)
-      .then(r => r.json())
+    fetchApiJson<WorkflowPageData>(`/api/projects/${params.id}/workflow`, undefined, "Unable to load workflow.")
       .then(d => {
         setData(d)
         setTasks(safeParse(d.tasksJson) as WorkflowTask[])
         setCompletedProjectAcIndices(safeParse(d.completedAcceptanceCriteria) as number[])
       })
-      .catch(() => {})
+      .catch((cause: Error) => setError(cause.message))
       .finally(() => setLoading(false))
   }, [params.id])
 
   if (loading) return <div className="flex items-center justify-center min-h-[60vh]"><div className="text-muted-foreground">Loading...</div></div>
+  if (error && !data) return <div className="flex items-center justify-center min-h-[60vh]"><div className="text-destructive">{error}</div></div>
   if (!data) return <div className="flex items-center justify-center min-h-[60vh]"><div className="text-muted-foreground">No workflow yet. Run analysis first.</div></div>
 
+  const currentRevision = data.revision
   const criteria = safeParse(data.acceptanceCriteria) as string[]
   const files = safeParse(data.expectedFiles) as string[]
 
@@ -68,22 +75,48 @@ export default function WorkflowPage() {
     navigator.clipboard.writeText(prompt)
   }
 
-  async function saveTasks(newTasks: WorkflowTask[]) {
+  async function reloadWorkflow() {
+    const next = await fetchApiJson<WorkflowPageData>(`/api/projects/${params.id}/workflow`, undefined, "Unable to reload workflow.")
+    setData(next)
+    setTasks(safeParse(next.tasksJson) as WorkflowTask[])
+    setCompletedProjectAcIndices(safeParse(next.completedAcceptanceCriteria) as number[])
+    setSelectedTask(null)
+  }
+
+  async function saveBoard(newTasks: WorkflowTask[], newCompletedProjectAcIndices: number[]): Promise<boolean> {
+    if (saveInFlight.current) return false
+    saveInFlight.current = true
     setSaving(true)
+    setError("")
     try {
-      await fetch(`/api/projects/${params.id}/workflow`, {
+      const result = await fetchApiJson<{ revision: number }>(`/api/projects/${params.id}/workflow`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tasksJson: JSON.stringify(newTasks) })
-      })
-    } catch (e) {
-      console.error("Failed to save tasks", e)
+        body: JSON.stringify({
+          expectedRevision: currentRevision,
+          tasks: newTasks,
+          completedAcceptanceCriteria: newCompletedProjectAcIndices,
+        }),
+      }, "Unable to save workflow.")
+      if (!Number.isSafeInteger(result.revision)) throw new Error("Workflow save returned an invalid revision.")
+      setData((current) => current ? { ...current, revision: result.revision } : current)
+      return true
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to save workflow.")
+      setTasks(tasks)
+      setCompletedProjectAcIndices(completedProjectAcIndices)
+      setSelectedTask((current) => current ? tasks.find((task) => task.id === current.id) ?? null : null)
+      if (cause instanceof ApiResponseError && cause.status === 409) {
+        try { await reloadWorkflow() } catch { /* Keep the original actionable conflict error. */ }
+      }
+      return false
     } finally {
+      saveInFlight.current = false
       setSaving(false)
     }
   }
 
-  function onDragEnd(result: DropResult) {
+  async function onDragEnd(result: DropResult) {
     const { source, destination } = result
     if (!destination) return
 
@@ -108,10 +141,10 @@ export default function WorkflowPage() {
       : [...nonAffectedTasks, ...sourceTasks, ...destTasks]
 
     setTasks(finalTasks)
-    saveTasks(finalTasks)
+    await saveBoard(finalTasks, completedProjectAcIndices)
   }
 
-  function toggleAc(taskId: string, index: number) {
+  async function toggleAc(taskId: string, index: number) {
     const newTasks = tasks.map(t => {
       if (t.id === taskId) {
         const completed = t.completedAcIndices || []
@@ -124,14 +157,14 @@ export default function WorkflowPage() {
       return t
     })
     setTasks(newTasks)
-    saveTasks(newTasks)
+    await saveBoard(newTasks, completedProjectAcIndices)
   }
 
-  function deleteTask(taskId: string) {
+  async function deleteTask(taskId: string) {
     const newTasks = tasks.filter(t => t.id !== taskId)
     setTasks(newTasks)
     setSelectedTask(null)
-    saveTasks(newTasks)
+    await saveBoard(newTasks, completedProjectAcIndices)
   }
 
   async function toggleProjectAc(index: number) {
@@ -141,15 +174,22 @@ export default function WorkflowPage() {
       : [...completedProjectAcIndices, index]
     
     setCompletedProjectAcIndices(newIndices)
+    await saveBoard(tasks, newIndices)
+  }
+
+  async function adoptGeneratedWorkflow() {
+    if (!window.confirm("Replace the current maintained board with the latest generated workflow? This cannot be undone.")) return
     setSaving(true)
+    setError("")
     try {
-      await fetch(`/api/projects/${params.id}/workflow`, {
+      await fetchApiJson(`/api/projects/${params.id}/workflow`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ completedAcceptanceCriteria: JSON.stringify(newIndices) })
-      })
-    } catch (e) {
-      console.error(e)
+        body: JSON.stringify({ expectedRevision: currentRevision, adoptGenerated: true }),
+      }, "Unable to adopt the generated workflow.")
+      await reloadWorkflow()
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to adopt the generated workflow.")
     } finally {
       setSaving(false)
     }
@@ -185,6 +225,16 @@ export default function WorkflowPage() {
         </div>
       </div>
 
+      {error && <p className="mb-4 rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">{error}</p>}
+      {data.generatedUpdateAvailable && (
+        <Card className="mb-6 border-amber-300 bg-amber-50">
+          <CardContent className="flex flex-wrap items-center justify-between gap-3 pt-6">
+            <p className="text-sm text-amber-900">A newer generated workflow is available. Your maintained task statuses and criteria were preserved.</p>
+            <Button variant="outline" disabled={saving} onClick={() => void adoptGeneratedWorkflow()}>Use latest generated workflow</Button>
+          </CardContent>
+        </Card>
+      )}
+
       <Card className="mb-6">
         <CardContent className="pt-6">
           <h3 className="font-semibold mb-2">Objective</h3>
@@ -192,7 +242,7 @@ export default function WorkflowPage() {
         </CardContent>
       </Card>
 
-      <DragDropContext onDragEnd={onDragEnd}>
+      <DragDropContext onDragEnd={(result) => void onDragEnd(result)}>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
           {columns.map(col => {
             const colTasks = tasks.filter(t => t.status === col)
@@ -213,7 +263,7 @@ export default function WorkflowPage() {
                       className="space-y-3 overflow-y-auto pr-2 pb-4 h-full"
                     >
                       {colTasks.map((task: WorkflowTask, index: number) => (
-                        <Draggable key={task.id} draggableId={task.id} index={index}>
+                        <Draggable key={task.id} draggableId={task.id} index={index} isDragDisabled={saving}>
                           {(provided) => (
                             <div
                               ref={provided.innerRef}
@@ -277,7 +327,7 @@ export default function WorkflowPage() {
                   <li 
                     key={i} 
                     className="text-sm flex items-start gap-3 text-muted-foreground cursor-pointer hover:bg-slate-50 p-2 rounded-md transition-colors"
-                    onClick={() => toggleProjectAc(i)}
+                    onClick={() => { if (!saving) void toggleProjectAc(i) }}
                   >
                     <div className={`mt-0.5 shrink-0 ${isDone ? "text-green-600" : "text-muted-foreground"}`}>
                       {isDone ? <CheckCircle2 className="w-4 h-4" /> : <Circle className="w-4 h-4" />}
@@ -325,7 +375,7 @@ export default function WorkflowPage() {
                 </Badge>
               </div>
               <div className="flex items-center gap-2">
-                <Button variant="ghost" size="icon" onClick={() => deleteTask(selectedTask.id)} className="text-red-500 hover:text-red-600 hover:bg-red-50">
+                <Button variant="ghost" size="icon" disabled={saving} onClick={() => void deleteTask(selectedTask.id)} className="text-red-500 hover:text-red-600 hover:bg-red-50">
                   <Trash2 className="w-4 h-4" />
                 </Button>
                 <Button variant="ghost" size="icon" onClick={() => setSelectedTask(null)}>
@@ -357,7 +407,7 @@ export default function WorkflowPage() {
                         <li 
                           key={idx} 
                           className="flex items-start gap-3 text-sm text-muted-foreground cursor-pointer hover:bg-slate-50 p-2 rounded-md transition-colors"
-                          onClick={() => toggleAc(selectedTask.id, idx)}
+                          onClick={() => { if (!saving) void toggleAc(selectedTask.id, idx) }}
                         >
                           <div className={`mt-0.5 shrink-0 ${isDone ? "text-green-600" : "text-muted-foreground"}`}>
                             {isDone ? <CheckCircle2 className="w-4 h-4" /> : <Circle className="w-4 h-4" />}

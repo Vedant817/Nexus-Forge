@@ -5,6 +5,7 @@ import { useParams } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { fetchApiJson } from "@/lib/client/api-response"
 
 interface BuildableTask {
   title: string
@@ -27,16 +28,17 @@ export default function KnowledgePage() {
   const params = useParams()
   const [data, setData] = useState<KnowledgePageData | null>(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState("")
 
   useEffect(() => {
-    fetch(`/api/projects/${params.id}/knowledge`)
-      .then(r => r.json())
+    fetchApiJson<KnowledgePageData>(`/api/projects/${params.id}/knowledge`, undefined, "Unable to load knowledge summary.")
       .then(d => setData(d))
-      .catch(() => {})
+      .catch((cause: Error) => setError(cause.message))
       .finally(() => setLoading(false))
   }, [params.id])
 
   if (loading) return <div className="flex items-center justify-center min-h-[60vh]"><div className="text-muted-foreground">Loading...</div></div>
+  if (error) return <div className="flex items-center justify-center min-h-[60vh]"><div className="text-destructive">{error}</div></div>
   if (!data) return <div className="flex items-center justify-center min-h-[60vh]"><div className="text-muted-foreground">No knowledge summary yet. Run analysis first.</div></div>
 
   const concepts = safeParse(data.keyConcepts) as string[]

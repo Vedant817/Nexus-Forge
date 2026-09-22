@@ -323,11 +323,23 @@ async function publishSuccessfulRun(input: {
     } else {
       await tx.repoAnalysis.deleteMany({ where: { projectId: job.projectId } })
     }
-    await tx.workflow.upsert({
-      where: { projectId: job.projectId },
-      create: workflowProjection(job.projectId, workflow),
-      update: workflowProjection(job.projectId, workflow),
-    })
+    await tx.$queryRaw`SELECT "id" FROM "Workflow" WHERE "projectId" = ${job.projectId} FOR UPDATE`
+    const currentWorkflow = await tx.workflow.findUnique({ where: { projectId: job.projectId } })
+    if (currentWorkflow) {
+      await tx.workflow.update({
+        where: { id: currentWorkflow.id },
+        data: {
+          ...workflowProjection(job.projectId, workflow),
+          humanState: currentWorkflow.humanEdited
+            ? currentWorkflow.humanState as Prisma.InputJsonValue
+            : {},
+          humanEdited: currentWorkflow.humanEdited,
+          revision: { increment: 1 },
+        },
+      })
+    } else {
+      await tx.workflow.create({ data: { ...workflowProjection(job.projectId, workflow), revision: 1 } })
+    }
     if (release) {
       await tx.releaseReport.upsert({
         where: { projectId: job.projectId },

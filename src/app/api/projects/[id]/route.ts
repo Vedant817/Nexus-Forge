@@ -21,10 +21,19 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
         releaseReport: true,
         proofPack: true,
         analysisRuns: {
-          where: { status: { in: ['QUEUED', 'RUNNING', 'CANCEL_REQUESTED'] } },
           orderBy: { createdAt: 'desc' },
-          take: 1,
-          select: { id: true, status: true, attemptCount: true, failureClass: true, failureMessage: true, stages: { orderBy: { ordinal: 'asc' }, select: { stage: true, status: true, attemptCount: true, failureMessage: true } } },
+          take: 10,
+          select: {
+            id: true, status: true, attemptCount: true, failureClass: true, failureCode: true,
+            failureMessage: true, queuedAt: true, startedAt: true, completedAt: true, cancelledAt: true,
+            stages: {
+              orderBy: { ordinal: 'asc' },
+              select: {
+                stage: true, status: true, attemptCount: true, failureClass: true, failureCode: true,
+                failureMessage: true, startedAt: true, completedAt: true,
+              },
+            },
+          },
         },
       },
     })
@@ -51,13 +60,17 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
     const current = await prisma.project.findUnique({
       where: { id },
-      select: { repoUrl: true, prUrl: true, githubBindingStatus: true, githubRepositoryFullName: true },
+      select: { repoUrl: true, prUrl: true, editRevision: true, githubBindingStatus: true, githubRepositoryFullName: true },
     })
     if (!current) return NextResponse.json({ error: 'Project not found' }, { status: 404 })
+    const { expectedRevision, ...changes } = parsed.data
+    if (expectedRevision !== current.editRevision) {
+      return NextResponse.json({ error: 'Project changed in another session. Reload before saving.', currentRevision: current.editRevision }, { status: 409 })
+    }
 
     const identity = resolveRepositoryIdentity(
-      parsed.data.repoUrl ?? current.repoUrl,
-      parsed.data.prUrl ?? current.prUrl,
+      changes.repoUrl ?? current.repoUrl,
+      changes.prUrl ?? current.prUrl,
     )
     if (!identity.ok) return NextResponse.json({ error: identity.error }, { status: 400 })
     if (
@@ -68,10 +81,12 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       return NextResponse.json({ error: 'Disconnect or change the verified GitHub App connection before changing repository identity.' }, { status: 409 })
     }
 
-    const project = await prisma.project.update({
-      where: { id, ownerId: access.value.user.id },
-      data: { ...parsed.data, githubRepositoryFullName: identity.fullName },
+    const updated = await prisma.project.updateMany({
+      where: { id, ownerId: access.value.user.id, editRevision: current.editRevision },
+      data: { ...changes, githubRepositoryFullName: identity.fullName, editRevision: { increment: 1 } },
     })
+    if (updated.count !== 1) return NextResponse.json({ error: 'Project changed in another session. Reload before saving.' }, { status: 409 })
+    const project = await prisma.project.findUnique({ where: { id, ownerId: access.value.user.id } })
     await logAudit('project_updated', `Project updated`, id)
     return NextResponse.json(project)
   } catch {

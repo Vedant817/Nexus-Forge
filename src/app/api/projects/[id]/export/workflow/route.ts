@@ -3,6 +3,7 @@ import prisma from '@/lib/db/prisma'
 import { exportWorkflowMarkdown } from '@/lib/export/markdown'
 import { logAudit } from '@/lib/security/audit-log'
 import { requireProjectAccess } from '@/lib/auth/authorization'
+import { resolveWorkflowState } from '@/lib/workflows/workflow-state'
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -10,15 +11,16 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   if (!access.ok) return access.response
 
   try {
-    const workflow = await prisma.workflow.findUnique({ where: { projectId: id } })
+    const workflow = await prisma.workflow.findUnique({ where: { projectId: id }, include: { project: { select: { activeAnalysisRunId: true } } } })
     if (!workflow) return NextResponse.json({ error: 'No workflow found' }, { status: 404 })
 
-    const tasks = JSON.parse(workflow.tasksJson)
+    const state = resolveWorkflowState(workflow, workflow.project.activeAnalysisRunId)
     const output = exportWorkflowMarkdown({
       workflowTitle: workflow.title,
       objective: workflow.objective,
-      tasks,
-      acceptanceCriteria: JSON.parse(workflow.acceptanceCriteria),
+      tasks: state.tasks.map((task) => ({ ...task, evidence: task.evidence ?? [] })),
+      acceptanceCriteria: state.acceptanceCriteria,
+      completedAcceptanceCriteria: state.completedAcceptanceCriteria,
       testPlan: workflow.testPlan,
       suggestedAgentPrompts: [],
       expectedFilesToChange: JSON.parse(workflow.expectedFiles),

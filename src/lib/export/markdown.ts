@@ -14,8 +14,8 @@ export function exportWorkflowMarkdown(workflow: WorkflowPlannerOutput): string 
 
     if (task.acceptanceCriteria.length > 0) {
       md += `**Acceptance Criteria:**\n`
-      for (const ac of task.acceptanceCriteria) {
-        md += `- [ ] ${ac}\n`
+      for (const [index, ac] of task.acceptanceCriteria.entries()) {
+        md += `- [${task.completedAcIndices?.includes(index) ? 'x' : ' '}] ${ac}\n`
       }
       md += '\n'
     }
@@ -24,7 +24,7 @@ export function exportWorkflowMarkdown(workflow: WorkflowPlannerOutput): string 
       md += `**Agent Prompt:**\n\`\`\`\n${task.suggestedAgentPrompt}\n\`\`\`\n\n`
     }
 
-    if (task.evidence.length > 0) {
+    if (task.evidence?.length > 0) {
       md += `**Evidence:**\n`
       for (const e of task.evidence) {
         md += `- ${e}\n`
@@ -34,8 +34,8 @@ export function exportWorkflowMarkdown(workflow: WorkflowPlannerOutput): string 
   }
 
   md += `## Acceptance Criteria\n\n`
-  for (const ac of workflow.acceptanceCriteria) {
-    md += `- [ ] ${ac}\n`
+  for (const [index, ac] of workflow.acceptanceCriteria.entries()) {
+    md += `- [${workflow.completedAcceptanceCriteria?.includes(index) ? 'x' : ' '}] ${ac}\n`
   }
 
   md += `\n## Test Plan\n\n${workflow.testPlan}\n\n`

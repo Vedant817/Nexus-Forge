@@ -103,6 +103,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
           githubBindingLastReconciledAt: observedAt,
           githubBindingReconciliationError: null,
           repoUrl: `https://github.com/${canonical.full_name}`,
+          editRevision: { increment: 1 },
         },
       })
       await tx.repositoryPermissionSnapshot.create({

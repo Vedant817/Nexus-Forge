@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { fetchApiJson } from "@/lib/client/api-response"
 
 interface Source {
   id: string
@@ -30,24 +31,27 @@ export default function IntakePage() {
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [repoUrl, setRepoUrl] = useState("")
   const [prUrl, setPrUrl] = useState("")
+  const [editRevision, setEditRevision] = useState(0)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     const id = params.id
-    fetch(`/api/projects/${id}/sources`)
-      .then(res => { if (res.ok) return res.json() })
-      .then(data => { if (data) setSources(data) })
-      .catch(() => {})
-    fetch(`/api/projects/${id}`)
-      .then(res => { if (res.ok) return res.json() })
+    fetchApiJson<Source[]>(`/api/projects/${id}/sources`, undefined, "Unable to load sources.")
+      .then(setSources)
+      .catch((cause: Error) => setError(cause.message))
+    fetchApiJson<{ repoUrl?: string; prUrl?: string; editRevision?: number }>(`/api/projects/${id}`, undefined, "Unable to load project URLs.")
       .then(data => {
-        if (data) {
-          setRepoUrl(data.repoUrl || "")
-          setPrUrl(data.prUrl || "")
-        }
+        setRepoUrl(data.repoUrl || "")
+        setPrUrl(data.prUrl || "")
+        if (!Number.isSafeInteger(data.editRevision)) throw new Error("Project response did not include a valid edit revision.")
+        setEditRevision(data.editRevision!)
       })
-      .catch(() => {})
+      .catch((cause: Error) => setError(cause.message))
   }, [params.id])
+
+  async function refreshSources() {
+    setSources(await fetchApiJson<Source[]>(`/api/projects/${params.id}/sources`, undefined, "Unable to refresh sources."))
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -66,25 +70,27 @@ export default function IntakePage() {
       }
       setContent("")
       setTitle("")
-      const id = params.id
-      fetch(`/api/projects/${id}/sources`)
-        .then(r => { if (r.ok) return r.json() })
-        .then(d => { if (d) setSources(d) })
-    } catch {
-      setError("Failed to add source")
+      await refreshSources()
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Failed to add source")
     } finally {
       setSubmitting(false)
     }
   }
 
   async function updateUrls() {
+    setError("")
     try {
-      await fetch(`/api/projects/${params.id}`, {
+      const updated = await fetchApiJson<{ editRevision?: number }>(`/api/projects/${params.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ repoUrl, prUrl }),
-      })
-    } catch {}
+        body: JSON.stringify({ repoUrl, prUrl, expectedRevision: editRevision }),
+      }, "Unable to update GitHub URLs.")
+      if (!Number.isSafeInteger(updated.editRevision)) throw new Error("Project update returned an invalid revision.")
+      setEditRevision(updated.editRevision!)
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to update GitHub URLs.")
+    }
   }
 
   async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -113,12 +119,9 @@ export default function IntakePage() {
         setError(data.error || "Failed to upload file")
         return
       }
-      const id = params.id
-      fetch(`/api/projects/${id}/sources`)
-        .then(r => { if (r.ok) return r.json() })
-        .then(d => { if (d) setSources(d) })
-    } catch {
-      setError("Failed to read file")
+      await refreshSources()
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Failed to read file")
     } finally {
       setUploading(false)
       if (fileInputRef.current) fileInputRef.current.value = ''
@@ -219,11 +222,13 @@ export default function IntakePage() {
                     size="sm"
                     className="text-destructive"
                     onClick={async () => {
-                      await fetch(`/api/projects/${params.id}/sources/${s.id}`, { method: "DELETE" })
-                      const id = params.id
-                      fetch(`/api/projects/${id}/sources`)
-                        .then(r => { if (r.ok) return r.json() })
-                        .then(d => { if (d) setSources(d) })
+                      setError("")
+                      try {
+                        await fetchApiJson(`/api/projects/${params.id}/sources/${s.id}`, { method: "DELETE" }, "Unable to remove source.")
+                        await refreshSources()
+                      } catch (cause) {
+                        setError(cause instanceof Error ? cause.message : "Unable to remove source.")
+                      }
                     }}
                   >
                     Remove
@@ -239,8 +244,15 @@ export default function IntakePage() {
         <div className="flex justify-center mt-6">
           <Button disabled={isAnalyzing} onClick={async () => {
             setIsAnalyzing(true)
-            await fetch(`/api/projects/${params.id}/run-analysis`, { method: "POST" })
-            router.push(`/projects/${params.id}`)
+            setError("")
+            try {
+              const run = await fetchApiJson<{ runId?: string; status?: string }>(`/api/projects/${params.id}/run-analysis`, { method: "POST" }, "Unable to start analysis.")
+              if (!run.runId || typeof run.status !== "string") throw new Error("Analysis start returned an invalid response.")
+              router.push(`/projects/${params.id}`)
+            } catch (cause) {
+              setError(cause instanceof Error ? cause.message : "Unable to start analysis.")
+              setIsAnalyzing(false)
+            }
           }}>
             {isAnalyzing ? "Starting Analysis..." : "Run Analysis"}
           </Button>

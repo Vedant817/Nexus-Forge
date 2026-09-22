@@ -65,6 +65,7 @@ export interface WorkflowTask {
   acceptanceCriteria: string[]
   suggestedAgentPrompt: string
   evidence: string[]
+  completedAcIndices?: number[]
 }
 
 export interface WorkflowPlannerOutput {
@@ -76,6 +77,7 @@ export interface WorkflowPlannerOutput {
   suggestedAgentPrompts: string[]
   expectedFilesToChange: string[]
   reviewChecklist: string[]
+  completedAcceptanceCriteria?: number[]
 }
 
 export interface ReleaseReadinessInput {

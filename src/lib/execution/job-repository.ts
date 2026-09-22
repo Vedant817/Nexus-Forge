@@ -104,6 +104,20 @@ WITH terminal_success AS (
   FROM exhausted
   WHERE run."id" = exhausted."analysisRunId" AND run."status" IN ('QUEUED', 'RUNNING')
   RETURNING run."id", run."projectId"
+), failed_running_stages AS (
+  UPDATE "AnalysisStageRun" AS stage
+  SET "status" = 'FAILED', "completedAt" = NOW(),
+      "failureClass" = 'TRANSIENT', "failureCode" = 'LeaseExpiredAfterMaxAttempts',
+      "failureMessage" = 'Analysis stopped after repeated temporary worker failures.', "updatedAt" = NOW()
+  FROM failed_runs
+  WHERE stage."analysisRunId" = failed_runs."id" AND stage."status" = 'RUNNING'
+  RETURNING stage."id"
+), cancelled_pending_stages AS (
+  UPDATE "AnalysisStageRun" AS stage
+  SET "status" = 'CANCELLED', "completedAt" = NOW(), "updatedAt" = NOW()
+  FROM failed_runs
+  WHERE stage."analysisRunId" = failed_runs."id" AND stage."status" = 'PENDING'
+  RETURNING stage."id"
 ), failed_projects AS (
   UPDATE "Project" AS project
   SET "status" = 'error', "updatedAt" = NOW()

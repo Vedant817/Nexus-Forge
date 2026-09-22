@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
+import { readApiResponse } from "@/lib/client/api-response"
 
 export default function NewProjectPage() {
   const router = useRouter()
@@ -28,14 +29,11 @@ export default function NewProjectPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, goal, repoUrl, prUrl }),
       })
-      const data = await res.json()
-      if (!res.ok) {
-        setError(data.error || data.details?.fieldErrors ? Object.values(data.details.fieldErrors).flat().join(", ") : "Failed to create project")
-        return
-      }
+      const data = await readApiResponse<{ id: string }>(res, "Failed to create project")
+      if (!data || typeof data.id !== "string" || !data.id) throw new Error("Project creation returned an invalid response.")
       router.push(`/projects/${data.id}`)
-    } catch {
-      setError("Failed to create project")
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Failed to create project")
     } finally {
       setSubmitting(false)
     }

@@ -10,12 +10,13 @@ export const createProjectSchema = z.object({
 })
 
 export const updateProjectSchema = z.object({
+  expectedRevision: z.number().int().nonnegative(),
   name: z.string().min(1).max(100).optional(),
   goal: z.string().max(5000).optional(),
   repoUrl: z.string().max(500).optional(),
   prUrl: z.string().max(500).optional(),
   status: z.enum(['idle', 'has_sources', 'analyzing', 'completed', 'error']).optional(),
-})
+}).strict()
 
 export const createSourceSchema = z.object({
   type: z.enum(['transcript', 'blog', 'notes', 'agent_log', 'docs', 'file']),

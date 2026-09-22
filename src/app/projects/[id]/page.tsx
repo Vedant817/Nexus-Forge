@@ -15,8 +15,22 @@ interface AnalysisRunView {
   status: string
   attemptCount: number
   failureClass?: string | null
+  failureCode?: string | null
   failureMessage?: string | null
-  stages: { stage: string; status: string; attemptCount: number; failureMessage?: string | null }[]
+  queuedAt?: string
+  startedAt?: string | null
+  completedAt?: string | null
+  cancelledAt?: string | null
+  stages: {
+    stage: string
+    status: string
+    attemptCount: number
+    failureClass?: string | null
+    failureCode?: string | null
+    failureMessage?: string | null
+    startedAt?: string | null
+    completedAt?: string | null
+  }[]
 }
 
 interface ProjectDetail {
@@ -52,7 +66,8 @@ export default function ProjectPage() {
   const [run, setRun] = useState<AnalysisRunView | null>(null)
   const [cancelling, setCancelling] = useState(false)
 
-  const isAnalyzing = Boolean(run && !["SUCCEEDED", "FAILED", "CANCELLED"].includes(run.status)) || project?.status.startsWith("analyzing") || optimisticAnalyzing
+  const runIsTerminal = Boolean(run && ["SUCCEEDED", "FAILED", "CANCELLED"].includes(run.status))
+  const isAnalyzing = (run ? !runIsTerminal : Boolean(project?.status.startsWith("analyzing"))) || optimisticAnalyzing
   const canRunAnalysis = !isAnalyzing && ((project?.sources?.length ?? 0) > 0 || Boolean(project?.repoUrl))
 
   useEffect(() => {
@@ -65,12 +80,9 @@ export default function ProjectPage() {
       .then(data => {
         if (data) {
           setProject(data)
-          if (data.analysisRuns?.[0]) {
-            setRun(data.analysisRuns[0])
-            setOptimisticAnalyzing(true)
-          } else if (!data.status.startsWith("analyzing")) {
-            setOptimisticAnalyzing(false)
-          }
+          const activeRun = data.analysisRuns?.find((candidate: AnalysisRunView) => !["SUCCEEDED", "FAILED", "CANCELLED"].includes(candidate.status))
+          setRun(activeRun ?? data.analysisRuns?.[0] ?? null)
+          setOptimisticAnalyzing(Boolean(activeRun) || data.status.startsWith("analyzing"))
         }
       })
       .catch(() => setError("Failed to load project"))
@@ -112,8 +124,18 @@ export default function ProjectPage() {
           setOptimisticAnalyzing(false)
           setCancelling(false)
           if (nextRun.failureMessage) setError(`${nextRun.failureClass ?? "Analysis failure"}: ${nextRun.failureMessage}`)
-          const projectResponse = await fetch(`/api/projects/${params.id}`)
-          if (projectResponse.ok) setProject(await projectResponse.json())
+          setProject((current) => current ? {
+            ...current,
+            status: nextRun.status === "SUCCEEDED" ? "completed" : nextRun.status === "CANCELLED" ? "cancelled" : "error",
+            analysisRuns: [nextRun, ...(current.analysisRuns ?? []).filter((candidate) => candidate.id !== nextRun.id)],
+          } : current)
+          try {
+            const projectResponse = await fetch(`/api/projects/${params.id}`)
+            if (!projectResponse.ok) throw new Error('Project refresh failed')
+            setProject(await projectResponse.json())
+          } catch {
+            setError((current) => current || "The run finished, but project history could not be refreshed. Reload to retry.")
+          }
           return
         }
         timer = setTimeout(poll, 2000)
@@ -222,6 +244,49 @@ export default function ProjectPage() {
           </Card>
         )}
 
+        {project.analysisRuns && project.analysisRuns.length > 0 && (
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle>Run history</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {project.analysisRuns.map((historyRun) => {
+                const failedStage = historyRun.stages.find((stage) => stage.status === "FAILED")
+                const terminalFailure = historyRun.status === "FAILED"
+                return (
+                  <div key={historyRun.id} className="rounded-lg border p-4">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <Badge variant={terminalFailure ? "destructive" : historyRun.status === "SUCCEEDED" ? "default" : "outline"}>{historyRun.status}</Badge>
+                        <span className="font-mono text-xs text-muted-foreground">{historyRun.id.slice(0, 12)}</span>
+                      </div>
+                      <span className="text-xs text-muted-foreground">
+                        {historyRun.completedAt ? new Date(historyRun.completedAt).toLocaleString() : historyRun.queuedAt ? new Date(historyRun.queuedAt).toLocaleString() : "Queued"}
+                      </span>
+                    </div>
+                    {terminalFailure && (
+                      <div className="mt-3 space-y-1 text-sm">
+                        <p className="font-medium text-destructive">{historyRun.failureCode ?? historyRun.failureClass ?? "AnalysisFailure"}</p>
+                        <p className="text-muted-foreground">{historyRun.failureMessage ?? "The run ended before all stages completed."}</p>
+                        {failedStage && <p className="text-muted-foreground">Failed stage: {failedStage.stage} · {failedStage.failureCode ?? failedStage.failureClass ?? "unknown"}</p>}
+                        <p>{recoveryGuidance(historyRun)}</p>
+                      </div>
+                    )}
+                    <div className="mt-3 grid gap-1 sm:grid-cols-2 lg:grid-cols-5">
+                      {historyRun.stages.map((stage) => (
+                        <div key={stage.stage} className="rounded bg-muted/50 px-2 py-1 text-xs">
+                          <span className="font-medium">{stage.stage}</span>: {stage.status}
+                          {stage.failureCode && <span className="block text-destructive">{stage.failureCode}</span>}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )
+              })}
+            </CardContent>
+          </Card>
+        )}
+
         <Suspense fallback={null}>
           <GitHubConnectionCard
             projectId={project.id}
@@ -288,9 +353,12 @@ export default function ProjectPage() {
                     setOptimisticAnalyzing(false)
                     return
                   }
+                  if (!data.runId || typeof data.status !== "string") {
+                    throw new Error("Analysis start returned an invalid response.")
+                  }
                   setRun({ id: data.runId, status: data.status, attemptCount: 0, stages: [] })
-                } catch {
-                  setError("Failed to start analysis")
+                } catch (cause) {
+                  setError(cause instanceof Error ? cause.message : "Failed to start analysis")
                   setOptimisticAnalyzing(false)
                 }
               }}
@@ -344,4 +412,12 @@ function NotFoundState() {
       </div>
     </div>
   )
+}
+
+function recoveryGuidance(run: AnalysisRunView): string {
+  const code = `${run.failureCode ?? ""} ${run.failureClass ?? ""}`.toLowerCase()
+  if (code.includes("github") || code.includes("repository")) return "Reconnect or reconcile the GitHub App, then retry the run."
+  if (code.includes("rate") || code.includes("transient") || code.includes("lease")) return "This appears temporary. Wait briefly, then retry the run."
+  if (code.includes("validation") || code.includes("input")) return "Review the project intake and generated-input limits before retrying."
+  return "Review the failed stage, update the project inputs if needed, then retry. Contact an administrator if the same code repeats."
 }
