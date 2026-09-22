@@ -85,6 +85,7 @@ async function main(): Promise<void> {
     assert(names.includes('20260922280000_entitlements'), 'entitlements migration was applied in order')
     assert(names.includes('20260922290000_pilot_loop'), 'pilot loop migration was applied in order')
     assert(names.includes('20260922300000_evidence_lifecycle'), 'evidence lifecycle migration was applied in order')
+    assert(names.includes('20260922310000_profiles_templates'), 'profiles/templates migration was applied in order')
     assert(names.includes('20260922220000_data_transfer_containment'), 'data-transfer containment migration was applied in order')
 
     const ownerId = await createUser(client)

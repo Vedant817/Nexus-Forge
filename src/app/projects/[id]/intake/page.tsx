@@ -34,6 +34,8 @@ export default function IntakePage() {
   const [editRevision, setEditRevision] = useState(0)
   const [excludedPaths, setExcludedPaths] = useState("")
   const [runAcknowledged, setRunAcknowledged] = useState(false)
+  const [profilePreset, setProfilePreset] = useState("Standard")
+  const [profileVersion, setProfileVersion] = useState<number | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const estimatedSourceChars = sources.reduce((sum, source) => sum + (source.rawContent?.length ?? 0), 0)
 
@@ -42,6 +44,14 @@ export default function IntakePage() {
     fetchApiJson<Source[]>(`/api/projects/${id}/sources`, undefined, "Unable to load sources.")
       .then(setSources)
       .catch((cause: Error) => setError(cause.message))
+    fetchApiJson<{ revisions?: Array<{ preset: string; version: number }> }>(`/api/projects/${id}/profiles`, undefined, "Unable to load profiles.")
+      .then((profiles) => {
+        if (profiles.revisions?.[0]) {
+          setProfilePreset(profiles.revisions[0].preset)
+          setProfileVersion(profiles.revisions[0].version)
+        }
+      })
+      .catch(() => {})
     fetchApiJson<{ repoUrl?: string; prUrl?: string; editRevision?: number; excludedPaths?: string[] }>(`/api/projects/${id}`, undefined, "Unable to load project URLs.")
       .then(data => {
         setRepoUrl(data.repoUrl || "")
@@ -259,6 +269,29 @@ export default function IntakePage() {
           </CardContent>
         </Card>
       )}
+
+      <Card className="mb-6">
+        <CardHeader><CardTitle>Run profile</CardTitle></CardHeader>
+        <CardContent className="space-y-2 text-sm">
+          <div className="flex flex-wrap gap-2">
+            {["Fast", "Standard", "Strict"].map((preset) => (
+              <Button key={preset} variant={profilePreset === preset ? "default" : "outline"} size="sm" onClick={async () => {
+                setError("")
+                try {
+                  const created = await fetchApiJson<{ preset: string; version: number }>(`/api/projects/${params.id}/profiles`, {
+                    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: `${preset} profile`, preset }),
+                  }, "Unable to save profile.")
+                  setProfilePreset(created.preset)
+                  setProfileVersion(created.version)
+                } catch (cause) {
+                  setError(cause instanceof Error ? cause.message : "Unable to save profile.")
+                }
+              }}>{preset}</Button>
+            ))}
+          </div>
+          <p className="text-xs text-muted-foreground">Active profile revision: {profileVersion ?? 'default Standard (v0)'} · maxSources from entitlement · maxFiles/verbosity from profile.</p>
+        </CardContent>
+      </Card>
 
       <Card className="mb-6">
         <CardHeader><CardTitle>Path exclusions and transfer estimate</CardTitle></CardHeader>

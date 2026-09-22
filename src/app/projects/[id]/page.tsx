@@ -289,6 +289,7 @@ export default function ProjectPage() {
                         </div>
                       ))}
                     </div>
+                    <a className="mt-2 inline-block text-xs underline" href={`/api/projects/${project.id}/runs/${historyRun.id}/manifest`}>Download manifest</a>
                   </div>
                 )
               })}

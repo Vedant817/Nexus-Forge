@@ -26,7 +26,7 @@ export type PreflightProject = {
   sources: Array<{ id: string; type: string; title: string; content: string }>
 }
 
-export function preflightAdmission(input: { project: PreflightProject; actorId: string; inputSnapshot: unknown; inputHash: string; modelConfig: unknown; entitlement?: { plan: string; revision: number; maxRunsPerDay: number; maxExportsPerDay: number; maxProjects: number; expiresAt: Date | null; suspended: boolean } }) {
+export function preflightAdmission(input: { project: PreflightProject; actorId: string; inputSnapshot: unknown; inputHash: string; modelConfig: unknown; entitlement?: { plan: string; revision: number; maxRunsPerDay: number; maxExportsPerDay: number; maxProjects: number; expiresAt: Date | null; suspended: boolean }; profile?: { preset: string; version: number; controls: { maxSources: number; maxContentLength: number; maxFiles: number; includePRChecks: boolean; verbosity: string } } | null; template?: { name: string; version: number } | null }) {
   const { project, actorId } = input
   if (input.entitlement) {
     if (input.entitlement.suspended) throw new Error('Pilot entitlement is suspended.')
@@ -52,6 +52,12 @@ export function preflightAdmission(input: { project: PreflightProject; actorId: 
   if (!PIPELINE_VERSION || !COLLECTOR_VERSION || !SCORECARD_VERSION || !PROMPT_VERSION) {
     throw new Error('Required pipeline version is unavailable.')
   }
+  if (input.profile && input.template && input.profile.preset === 'Fast' && input.template.name === 'api-service') {
+    throw new Error('Profile and template conflict: Fast depth cannot satisfy the api-service template.')
+  }
+  if (input.profile && input.profile.controls.maxSources > maxSources) {
+    throw new Error('Profile exceeds the entitled source allowance.')
+  }
   const requestId = randomUUID()
   const manifest = {
     version: ADMISSION_MANIFEST_VERSION,
@@ -70,6 +76,8 @@ export function preflightAdmission(input: { project: PreflightProject; actorId: 
     },
     sources: project.sources.map((source) => ({ id: source.id, digest: contentHash({ type: source.type, title: source.title, content: source.content }) })),
     inputHash: input.inputHash,
+    profile: input.profile ? { preset: input.profile.preset, version: input.profile.version, controls: input.profile.controls } : null,
+    template: input.template ?? null,
     pipelineVersion: PIPELINE_VERSION,
     promptVersion: PROMPT_VERSION,
     modelConfigVersion: input.modelConfig && (input.modelConfig as { provider?: string }).provider !== 'none' ? MODEL_CONFIG_VERSION : 'deterministic-v1',

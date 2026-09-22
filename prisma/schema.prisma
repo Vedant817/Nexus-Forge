@@ -139,6 +139,7 @@ model Project {
   acceptedBaselines AcceptedBaseline[]
   schedule PilotSchedule?
   baselineDigests BaselineDigest[]
+  profileRevisions ProfileRevision[]
   organizationId String?
   organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Restrict)
 
@@ -537,6 +538,33 @@ model PilotSchedule {
   updatedAt DateTime  @updatedAt
 
   project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+model ProfileRevision {
+  id        String   @id @default(cuid())
+  projectId String?
+  name      String
+  preset    String
+  controls  Json
+  version   Int
+  actorId   String
+  createdAt DateTime @default(now())
+
+  project Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, version])
+  @@index([projectId, createdAt])
+}
+
+model RunTemplate {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String   @default("")
+  controls    Json
+  version     Int      @default(1)
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
 
 model BaselineDigest {

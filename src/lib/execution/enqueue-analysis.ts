@@ -67,6 +67,11 @@ export async function enqueueAnalysis(projectId: string, ownerId: string): Promi
   const { getEffectiveEntitlement, assertEntitlementActive, reserveRunUsage } = await import('@/lib/billing/entitlements')
   const entitlement = await getEffectiveEntitlement({ organizationId: project.organizationId, userId: ownerId })
   assertEntitlementActive(entitlement)
+  const latestProfile = await prisma.profileRevision.findFirst({ where: { projectId }, orderBy: { version: 'desc' } })
+  const { PRESET_CONTROLS } = await import('@/lib/pilot/profiles')
+  const profile = latestProfile
+    ? { preset: latestProfile.preset, version: latestProfile.version, controls: latestProfile.controls as { maxSources: number; maxContentLength: number; maxFiles: number; includePRChecks: boolean; verbosity: string } }
+    : { preset: 'Standard', version: 0, controls: PRESET_CONTROLS.Standard }
   const preflightProject = {
     ...project,
     repoUrl: inputSnapshot.project.repoUrl,
@@ -80,6 +85,7 @@ export async function enqueueAnalysis(projectId: string, ownerId: string): Promi
     inputHash,
     modelConfig: { provider: 'groq', model: config.GROQ_MODEL },
     entitlement,
+    profile,
   })
   const processingMode = preflight.processingMode
   const inferenceEnabled = processingMode === 'INFERENCE_ENABLED'
@@ -93,6 +99,7 @@ export async function enqueueAnalysis(projectId: string, ownerId: string): Promi
       inputHash,
       modelConfig,
       entitlement,
+      profile,
     })
     return { manifest: resolved.manifest, digest: resolved.digest }
   })()
