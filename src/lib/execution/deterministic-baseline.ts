@@ -8,12 +8,14 @@ import { collectPullRequestContext } from '@/lib/github/pull-request-snapshot'
 import { collectRepositorySnapshot, persistRepositorySnapshot, repositoryContextFromSnapshot } from '@/lib/github/repository-snapshot'
 import { buildDependencyMap } from '@/lib/repository/dependency-map'
 import { fenceJobLease, LeaseLostError, type ClaimedJob } from '@/lib/execution/job-repository'
+import { verifyAdmissionManifest } from '@/lib/execution/preflight'
 import { AnalysisCancelledError } from '@/lib/execution/worker-core'
 
 export async function publishDeterministicBaseline(job: ClaimedJob, signal: AbortSignal): Promise<{ commitSha?: string }> {
   if (!job.analysisRunId) throw new Error('Analysis job is missing analysisRunId.')
   const run = await prisma.analysisRun.findFirst({ where: { id: job.analysisRunId, projectId: job.projectId, ownerId: job.ownerId } })
   if (!run) throw new Error('Persisted analysis job relationships are invalid.')
+  verifyAdmissionManifest(run)
   if (run.ledgerSealedAt) return { commitSha: run.commitSha ?? undefined }
   const snapshot = (run.inputSnapshot as { project: { name: string; goal: string; repoUrl: string; prUrl: string; githubRepositoryFullName?: string | null; githubRepositoryId?: string | null; githubInstallationId?: string | null; githubBindingStatus?: string }; sources: Array<{ id: string; type: string; title: string; content: string }> })
   if (contentHash(snapshot) !== run.inputHash) throw new Error('Analysis snapshot integrity validation failed.')

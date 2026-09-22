@@ -4,9 +4,7 @@ import config from '@/lib/config/env'
 import { redactSecrets } from '@/lib/security/secret-redaction'
 import { contentHash } from './hash'
 import { assertGroqModelAllowed } from './version-registry'
-import { isInferenceEnabled } from '@/lib/ai/inference-policy'
-import { buildAdmissionManifest, resolveProcessingMode } from '@/lib/ai/data-policy'
-import { COLLECTOR_VERSION, SCORECARD_VERSION } from '@/lib/evidence/registry'
+import { preflightAdmission } from '@/lib/execution/preflight'
 import {
   ANALYSIS_STAGES,
   DEFAULT_MAX_ATTEMPTS,
@@ -62,30 +60,37 @@ export async function enqueueAnalysis(projectId: string, ownerId: string): Promi
       content: redactSecrets(source.rawContent),
     })),
   }
-  if (project.ingestionSuspendedAt) throw new Error('Ingestion is suspended for this project.')
   if (project.sources.some((source) => source.quarantineStatus === 'QUARANTINED')) {
     throw new Error('A quarantined source must be resolved or overridden before running analysis.')
   }
-  const processingMode = resolveProcessingMode(project, isInferenceEnabled())
+  const inputHash = contentHash(inputSnapshot)
+  const preflightProject = {
+    ...project,
+    repoUrl: inputSnapshot.project.repoUrl,
+    prUrl: inputSnapshot.project.prUrl,
+    sources: project.sources.map((source) => ({ id: source.id, type: source.type, title: source.title, content: source.rawContent })),
+  }
+  const preflight = preflightAdmission({
+    project: preflightProject,
+    actorId: ownerId,
+    inputSnapshot,
+    inputHash,
+    modelConfig: { provider: 'groq', model: config.GROQ_MODEL },
+  })
+  const processingMode = preflight.processingMode
   const inferenceEnabled = processingMode === 'INFERENCE_ENABLED'
   if (inferenceEnabled) assertGroqModelAllowed(config.GROQ_MODEL)
   const modelConfig = inferenceEnabled ? { provider: 'groq', model: config.GROQ_MODEL } : { provider: 'none', model: 'deterministic-only' }
-  const inputHash = contentHash(inputSnapshot)
-  const { manifest, digest } = buildAdmissionManifest({
-    projectId,
-    ownerId,
-    actorId: ownerId,
-    processingMode,
-    repositoryPrivate: project.githubRepositoryPrivate ?? null,
-    repositoryFullName: project.githubRepositoryFullName,
-    repositoryId: project.githubRepositoryId,
-    installationId: project.githubInstallationId,
-    inputHash,
-    pipelineVersion: PIPELINE_VERSION,
-    collectorVersion: COLLECTOR_VERSION,
-    scorecardVersion: SCORECARD_VERSION,
-    modelConfig,
-  })
+  const { manifest, digest } = (() => {
+    const resolved = preflightAdmission({
+      project: preflightProject,
+      actorId: ownerId,
+      inputSnapshot,
+      inputHash,
+      modelConfig,
+    })
+    return { manifest: resolved.manifest, digest: resolved.digest }
+  })()
 
   try {
     const run = await prisma.$transaction(async (tx) => {

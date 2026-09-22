@@ -20,6 +20,7 @@ import { buildDependencyMap, type DependencyMap } from '@/lib/repository/depende
 import type { EvaluatedScorecard } from '@/lib/evidence/types'
 import { constrainWorkflowEvidenceReferences } from '@/lib/evidence/references'
 import { publishDeterministicBaseline } from '@/lib/execution/deterministic-baseline'
+import { verifyAdmissionManifest } from '@/lib/execution/preflight'
 import type {
   KnowledgeDistillerInput,
   KnowledgeDistillerOutput,
@@ -423,6 +424,7 @@ export async function executeAnalysisJob(job: ClaimedJob, leaseSignal: AbortSign
     where: { id: job.analysisRunId, projectId: job.projectId, ownerId: job.ownerId },
   })
   if (!run) throw new Error('Persisted analysis job relationships are invalid.')
+  verifyAdmissionManifest(run)
   const projectBinding = await prisma.project.findFirst({
     where: { id: job.projectId, ownerId: job.ownerId },
     select: { githubRepositoryFullName: true, githubRepositoryId: true, githubInstallationId: true, githubBindingStatus: true },
