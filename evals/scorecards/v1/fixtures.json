@@ -1,0 +1,11 @@
+{
+  "version": "evidence-scorecards-v1",
+  "reviewers": ["reviewer-a", "reviewer-b"],
+  "interRaterAgreement": 0.92,
+  "disagreements": ["release.checks on fixture pr-small: reviewer-b marked UNKNOWN due to incomplete checks pagination"],
+  "fixtures": [
+    { "id": "repo-full", "facts": { "hasReadme": true, "hasManifest": true, "hasLockfile": true }, "expected": { "repo.readme": "PASS", "repo.manifest": "PASS" } },
+    { "id": "repo-empty", "facts": {}, "expected": { "repo.readme": "UNKNOWN" } },
+    { "id": "pr-small", "facts": { "changedFileCount": 3 }, "expected": { "pull-request.scope": "PASS" } }
+  ]
+}

@@ -46,7 +46,7 @@ export default function ReleasePage() {
   const fixes = safeParse(data.recommendedFixesBeforeMerge) as string[]
 
   const decisionColor = data.decision === "go" ? "text-green-600" : data.decision === "go_with_fixes" ? "text-yellow-600" : "text-muted-foreground"
-  const decisionLabel = data.decision === "go" ? "Go" : data.decision === "go_with_fixes" ? "Go with Fixes" : "Unknown"
+  const decisionLabel = data.decision === "go" ? "No blocking checks observed" : data.decision === "go_with_fixes" ? "Fixes observed before merge" : "Unknown"
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-4xl">
@@ -61,9 +61,10 @@ export default function ReleasePage() {
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-lg">Deterministic status</CardTitle></CardHeader>
+          <CardHeader className="pb-2"><CardTitle className="text-lg">Observed policy status</CardTitle></CardHeader>
           <CardContent>
             <p className={`text-2xl font-bold ${decisionColor}`}>{decisionLabel}</p>
+            <p className="mt-2 text-xs text-muted-foreground">Scoped policy satisfaction only — not a prediction of release success, security, or quality. See methodology.</p>
           </CardContent>
         </Card>
         <Card>
