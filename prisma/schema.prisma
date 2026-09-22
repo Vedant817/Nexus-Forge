@@ -884,14 +884,21 @@ model AiUsageEvent {
 }
 
 model AuditLog {
-  id        String   @id @default(cuid())
-  action    String
-  details   String   @default("")
-  projectId String   @default("")
-  userId    String?
-  createdAt DateTime @default(now())
+  id             String   @id @default(cuid())
+  action         String
+  details        String   @default("")
+  projectId      String   @default("")
+  userId         String?
+  organizationId String?
+  targetId       String?
+  requestId      String?
+  interface      String   @default("api")
+  outcome        String   @default("success")
+  createdAt      DateTime @default(now())
 
   user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([userId, createdAt])
+  @@index([organizationId, createdAt])
+  @@index([projectId, createdAt])
 }
