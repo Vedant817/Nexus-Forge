@@ -10,6 +10,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary"
 import { GitHubConnectionCard } from "@/components/github-connection-card"
 import { PrivacyPolicyCard } from "@/components/privacy-policy-card"
 import { SetupChecklist } from "@/components/setup-checklist"
+import { PilotLoopCard } from "@/components/pilot-loop-card"
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts"
 
 interface AnalysisRunView {
@@ -315,6 +316,8 @@ export default function ProjectPage() {
             lastReconciledAt={project.githubBindingLastReconciledAt}
           />
         </Suspense>
+
+        <PilotLoopCard projectId={project.id} latestRunId={project.analysisRuns?.[0]?.id} />
 
         <PrivacyPolicyCard
           projectId={project.id}

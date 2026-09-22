@@ -135,6 +135,9 @@ model Project {
   githubOnboardingStates GitHubOnboardingState[]
   repositoryPermissionSnapshots RepositoryPermissionSnapshot[]
   secretOverrides SecretOverride[]
+  acceptedBaselines AcceptedBaseline[]
+  schedule PilotSchedule?
+  baselineDigests BaselineDigest[]
   organizationId String?
   organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Restrict)
 
@@ -442,6 +445,51 @@ model IdempotencyKey {
   @@index([projectId, createdAt])
 }
 
+model AcceptedBaseline {
+  id        String   @id @default(cuid())
+  projectId String
+  runId     String   @unique
+  actorId   String
+  createdAt DateTime @default(now())
+
+  project Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  run     AnalysisRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, createdAt])
+}
+
+model PilotSchedule {
+  id        String    @id @default(cuid())
+  projectId String    @unique
+  enabled   Boolean   @default(true)
+  cadence   String    @default("WEEKLY")
+  nextRunAt DateTime
+  lastRunAt DateTime?
+  createdBy String
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+model BaselineDigest {
+  id             String   @id @default(cuid())
+  projectId      String
+  runId          String
+  baselineRunId  String
+  additions      Json     @default("[]")
+  removals       Json     @default("[]")
+  statusChanges  Json     @default("[]")
+  unknowns       Json     @default("[]")
+  deliveredAt    DateTime?
+  createdAt      DateTime @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, runId])
+  @@index([projectId, createdAt])
+}
+
 model PilotEntitlement {
   id             String    @id @default(cuid())
   organizationId String?   @unique
@@ -660,6 +708,7 @@ model AnalysisRun {
   project            Project             @relation("ProjectAnalysisRuns", fields: [projectId], references: [id], onDelete: Restrict)
   owner              User                @relation(fields: [ownerId], references: [id], onDelete: Restrict)
   activeForProject   Project?            @relation("ActiveAnalysisRun")
+  acceptedBaseline   AcceptedBaseline?
   stages             AnalysisStageRun[]
   jobs               Job[]
   artifacts          ArtifactVersion[]

@@ -15,6 +15,7 @@
     "test:integration": "tsx scripts/test-durable-postgres.ts",
     "backfill:project-owners": "tsx scripts/backfill-project-owners.ts",
     "worker:analysis": "tsx scripts/analysis-worker.ts",
+    "schedule:pilot": "tsx scripts/pilot-scheduler.ts",
     "quality:sandbox": "node --conditions=react-server --import tsx scripts/quality-sandbox.ts"
   },
   "dependencies": {
