@@ -17,6 +17,7 @@
     "worker:analysis": "tsx scripts/analysis-worker.ts",
     "schedule:pilot": "tsx scripts/pilot-scheduler.ts",
     "billing:reconcile": "tsx scripts/billing-reconcile.ts",
+    "cli": "tsx scripts/cli.ts",
     "quality:sandbox": "node --conditions=react-server --import tsx scripts/quality-sandbox.ts"
   },
   "dependencies": {

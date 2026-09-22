@@ -444,6 +444,8 @@ model Organization {
   projects    Project[]
   tenantKey   TenantKey?
   deletionRequests DeletionRequest[]
+  policyPacks PolicyPack[]
+  repositoryGroups RepositoryGroup[]
 
   @@index([ownerId])
 }
@@ -705,6 +707,76 @@ model ShareLink {
   project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@index([projectId, createdAt])
+}
+
+model PolicyPack {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  thresholds     Json
+  version        Int      @default(1)
+  active         Boolean  @default(true)
+  createdBy      String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, name, version])
+  @@index([organizationId, active])
+}
+
+model RepositoryGroup {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  pattern        String
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, name])
+}
+
+model ServiceAccount {
+  id             String    @id @default(cuid())
+  organizationId String?
+  userId         String?
+  name           String
+  scopes         Json      @default("[]")
+  tokenHash      String    @unique
+  lastRotatedAt  DateTime?
+  revokedAt      DateTime?
+  createdAt      DateTime  @default(now())
+
+  @@index([organizationId])
+  @@index([userId])
+}
+
+model OutboundWebhook {
+  id             String   @id @default(cuid())
+  organizationId String?
+  projectId      String?
+  url            String
+  secret         String
+  events         Json     @default("[]")
+  active         Boolean  @default(true)
+  createdAt      DateTime @default(now())
+
+  @@index([projectId])
+}
+
+model OutboundDelivery {
+  id          String    @id @default(cuid())
+  webhookId   String
+  eventId     String    @unique
+  event       String
+  payloadHash String
+  status      String    @default("pending")
+  attempts    Int       @default(0)
+  createdAt   DateTime  @default(now())
+
+  @@index([webhookId, createdAt])
 }
 
 model ProfileRevision {
