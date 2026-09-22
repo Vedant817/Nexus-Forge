@@ -365,6 +365,8 @@ model Organization {
   memberships Membership[]
   invitations Invitation[]
   projects    Project[]
+  tenantKey   TenantKey?
+  deletionRequests DeletionRequest[]
 
   @@index([ownerId])
 }
@@ -396,6 +398,35 @@ model Invitation {
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@index([organizationId])
+}
+
+model TenantKey {
+  id             String    @id @default(cuid())
+  organizationId String    @unique
+  keyId          String    @unique
+  keyMaterial    String?
+  createdAt      DateTime  @default(now())
+  destroyedAt    DateTime?
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+}
+
+model DeletionRequest {
+  id             String    @id @default(cuid())
+  organizationId String?
+  projectId      String?
+  scope          String
+  status         String    @default("PENDING")
+  requestedBy    String
+  reason         String?
+  tombstone      Json?
+  createdAt      DateTime  @default(now())
+  completedAt    DateTime?
+
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, status])
+  @@index([projectId, status])
 }
 
 model KnowledgeSummary {

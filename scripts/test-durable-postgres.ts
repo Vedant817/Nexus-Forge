@@ -77,6 +77,9 @@ async function main(): Promise<void> {
     assert(names.includes('20260922190000_github_authority_safe_onboarding'), 'GitHub authority-safe onboarding migration was applied in order')
     assert(names.includes('20260922210000_workflow_human_overlay'), 'workflow human-overlay migration was applied in order')
     assert(names.includes('20260922220000_data_transfer_containment'), 'data-transfer containment migration was applied in order')
+    assert(names.includes('20260922230000_workspace_tenancy'), 'workspace tenancy migration was applied in order')
+    assert(names.includes('20260922240000_deletion_retention'), 'deletion retention migration was applied in order')
+    assert(names.includes('20260922220000_data_transfer_containment'), 'data-transfer containment migration was applied in order')
 
     const ownerId = await createUser(client)
 

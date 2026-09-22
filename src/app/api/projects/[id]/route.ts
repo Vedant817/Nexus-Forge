@@ -98,11 +98,15 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
   const { id } = await params
   const access = await requireProjectAccess(request.headers, id)
   if (!access.ok) return access.response
+  const { requireTenantAction } = await import('@/lib/auth/tenancy')
+  const tenant = await requireTenantAction(id, access.value.user.id, 'manage_members')
+  if (!tenant.ok) return NextResponse.json({ error: tenant.error }, { status: tenant.status })
 
   try {
-    await prisma.project.delete({ where: { id, ownerId: access.value.user.id } })
+    const { requestProjectDeletion } = await import('@/lib/privacy/deletion')
+    const { deletionId } = await requestProjectDeletion({ projectId: id, actorId: access.value.user.id })
     await logAudit('project_deleted', `Project deleted`, id)
-    return NextResponse.json({ success: true })
+    return NextResponse.json({ success: true, deletionId })
   } catch {
     return NextResponse.json({ error: 'Failed to delete project' }, { status: 500 })
   }
