@@ -67,7 +67,8 @@ describe('GitHub onboarding state', () => {
       stateId: '123e4567-e89b-12d3-a456-426614174000',
       tokenHash: state.tokenHash,
     })
-    expect(verifyGitHubOnboardingToken(`${state.token.slice(0, -1)}x`)).toBeNull()
+    const last = state.token.slice(-1)
+    expect(verifyGitHubOnboardingToken(`${state.token.slice(0, -1)}${last === 'x' ? 'y' : 'x'}`)).toBeNull()
   })
 })
 
