@@ -31,8 +31,10 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     })
 
     await logAudit('export_generated', 'Workflow markdown exported', id)
+    const review = await prisma.artifactReview.findFirst({ where: { projectId: id, artifactKind: 'WORKFLOW' }, orderBy: { createdAt: 'desc' } })
+    const header = `<!-- Approval: ${review?.status ?? 'DRAFT'} scope=${review?.scope ?? 'internal'} evidence=${state.acceptanceCriteria.length} criteria -->\n`
 
-    return new NextResponse(output, {
+    return new NextResponse(header + output, {
       headers: {
         'Content-Type': 'text/markdown; charset=utf-8',
         'Content-Disposition': 'attachment; filename="workflow.md"',
