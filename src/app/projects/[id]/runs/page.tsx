@@ -16,12 +16,16 @@ export default function RunsPage() {
   const [from, setFrom] = useState('')
   const [to, setTo] = useState('')
   const [comparison, setComparison] = useState<{ explanations: string[] } | null>(null)
+  const [drafts, setDrafts] = useState<Array<{ id: string; createdAt: string }>>([])
   const [error, setError] = useState('')
 
   useEffect(() => {
     fetchApiJson<{ runs: RunRow[] }>(`/api/projects/${params.id}/runs`, undefined, 'Unable to load runs.')
       .then((data) => setRuns(data.runs))
       .catch((cause: Error) => setError(cause.message))
+    fetchApiJson<Array<{ id: string; createdAt: string }>>(`/api/projects/${params.id}/webhook-drafts`, undefined, 'Unable to load drafts.')
+      .then(setDrafts)
+      .catch(() => {})
   }, [params.id])
 
   function load() {
@@ -59,6 +63,15 @@ export default function RunsPage() {
         ))}
         {runs.length === 0 && <p className="text-sm text-muted-foreground">No runs found.</p>}
       </div>
+      <Card className="mb-6">
+        <CardHeader><CardTitle>Webhook proof drafts for review</CardTitle></CardHeader>
+        <CardContent className="text-sm">
+          {drafts.length === 0 && <p className="text-muted-foreground">No webhook drafts. Merged-PR drafts appear here for human review.</p>}
+          {drafts.map((draft) => (
+            <p key={draft.id} className="font-mono text-xs">{draft.id.slice(0, 12)} · {new Date(draft.createdAt).toLocaleString()} · review required</p>
+          ))}
+        </CardContent>
+      </Card>
       <Card>
         <CardHeader><CardTitle>Compare runs</CardTitle></CardHeader>
         <CardContent className="space-y-2 text-sm">

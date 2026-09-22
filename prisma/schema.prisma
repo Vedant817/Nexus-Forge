@@ -144,6 +144,7 @@ model Project {
   artifactReviews ArtifactReview[]
   triggerSettings TriggerSettings?
   findings Finding[]
+  shareLinks ShareLink[]
   organizationId String?
   organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Restrict)
 
@@ -616,6 +617,36 @@ model FindingResolution {
   finding Finding @relation(fields: [findingId], references: [id], onDelete: Cascade)
 
   @@index([findingId, verifiedAt])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  projectId String
+  runId     String?
+  kind      String
+  title     String
+  body      String   @default("")
+  readAt    DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([projectId, createdAt])
+}
+
+model ShareLink {
+  id         String    @id @default(cuid())
+  projectId  String
+  runId      String?
+  tokenHash  String    @unique
+  expiresAt  DateTime
+  revokedAt  DateTime?
+  createdBy  String
+  createdAt  DateTime  @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, createdAt])
 }
 
 model ProfileRevision {

@@ -157,5 +157,11 @@ export async function publishDeterministicBaseline(job: ClaimedJob, signal: Abor
     })
     await tx.project.update({ where: { id: job.projectId, ownerId: job.ownerId }, data: { activeAnalysisRunId: job.analysisRunId, status: 'completed' } })
   })
+  try {
+    const { notifyRunCompleted } = await import('@/lib/notifications/center')
+    await notifyRunCompleted({ userId: job.ownerId, projectId: job.projectId, runId: job.analysisRunId!, status: 'BASELINE_SEALED' })
+  } catch {
+    // Notifications are fail-open; baseline sealing must not depend on them.
+  }
   return { commitSha }
 }
