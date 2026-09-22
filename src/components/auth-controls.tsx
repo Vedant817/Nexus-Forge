@@ -1,9 +1,11 @@
 'use client'
 
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { authClient } from '@/lib/auth-client'
 
 export function AuthControls() {
+  const router = useRouter()
   const { data: session, isPending } = authClient.useSession()
 
   if (isPending) return <span className="text-xs text-muted-foreground">Checking session…</span>
@@ -16,7 +18,7 @@ export function AuthControls() {
       type="button"
       onClick={async () => {
         await authClient.signOut()
-        window.location.assign('/login')
+        router.replace('/login')
       }}
       className="hover:text-primary/80 transition-colors"
     >

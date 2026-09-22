@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 
@@ -20,6 +21,7 @@ interface ProjectSummary {
 }
 
 export default function ProjectsPage() {
+  const router = useRouter()
   const [projects, setProjects] = useState<ProjectSummary[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -29,7 +31,7 @@ export default function ProjectsPage() {
       try {
         const response = await fetch('/api/projects')
         if (response.status === 401) {
-          window.location.assign(`/login?callbackURL=${encodeURIComponent('/projects')}`)
+          router.replace(`/login?callbackURL=${encodeURIComponent('/projects')}`)
           return
         }
         if (!response.ok) throw new Error('Unable to load projects')
@@ -43,7 +45,7 @@ export default function ProjectsPage() {
       }
     }
     void loadProjects()
-  }, [])
+  }, [router])
 
   if (loading) return <div className="flex items-center justify-center min-h-[60vh]"><div className="text-muted-foreground">Loading projects...</div></div>
   if (error) return <div className="flex items-center justify-center min-h-[60vh]"><div className="text-destructive">{error}</div></div>

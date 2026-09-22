@@ -36,6 +36,17 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: Block critical runtime advisories
+        run: npm run audit:ci
+      - name: Generate CycloneDX SBOM
+        run: npm run sbom > sbom.cdx.json
+      - name: Upload SBOM
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-${{ github.sha }}
+          path: sbom.cdx.json
+          if-no-files-found: error
+          retention-days: 30
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test
