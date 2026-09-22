@@ -1,0 +1,37 @@
+# Nexus Forge pilot deployment (version-controlled).
+# Services: web, analysis worker, migration job. Secrets via environment references only.
+version: "3.9"
+services:
+  web:
+    image: nexus-forge:${APP_VERSION:-dev}
+    command: ["npm", "start"]
+    ports: ["3000:3000"]
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET}
+      BETTER_AUTH_URL: ${BETTER_AUTH_URL}
+      GITHUB_APP_ID: ${GITHUB_APP_ID}
+      GITHUB_WEBHOOK_SECRET: ${GITHUB_WEBHOOK_SECRET}
+      GROQ_API_KEY: ${GROQ_API_KEY}
+      INFERENCE_DISABLED: ${INFERENCE_DISABLED:-false}
+      INGESTION_DISABLED: ${INGESTION_DISABLED:-false}
+      DB_STATEMENT_TIMEOUT_MS: ${DB_STATEMENT_TIMEOUT_MS:-10000}
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000/api/health').then(r=>{if(!r.ok)process.exit(1)})"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+  worker:
+    image: nexus-forge:${APP_VERSION:-dev}
+    command: ["npm", "run", "worker:analysis"]
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      WORKER_CONCURRENCY: ${WORKER_CONCURRENCY:-2}
+      ANALYSIS_JOB_LEASE_MS: ${ANALYSIS_JOB_LEASE_MS:-60000}
+    deploy:
+      replicas: ${WORKER_REPLICAS:-1}
+  migrate:
+    image: nexus-forge:${APP_VERSION:-dev}
+    command: ["npx", "prisma", "migrate", "deploy"]
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
