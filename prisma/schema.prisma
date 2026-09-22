@@ -634,6 +634,64 @@ model Notification {
   @@index([projectId, createdAt])
 }
 
+model BillingCustomer {
+  id             String   @id @default(cuid())
+  organizationId String?  @unique
+  userId         String?  @unique
+  stripeCustomerId String @unique
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model Subscription {
+  id                 String    @id @default(cuid())
+  organizationId     String?
+  userId             String?
+  stripeSubscriptionId String  @unique
+  plan               String
+  status             String
+  currentPeriodEnd   DateTime?
+  cancelAtPeriodEnd  Boolean   @default(false)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  @@index([organizationId, status])
+  @@index([userId, status])
+}
+
+model EntitlementSnapshot {
+  id             String   @id @default(cuid())
+  organizationId String?
+  userId         String?
+  revision       Int
+  allowances     Json
+  source         String   @default("stripe")
+  createdAt      DateTime @default(now())
+
+  @@index([organizationId, revision])
+  @@index([userId, revision])
+}
+
+model UsageLedger {
+  id             String   @id @default(cuid())
+  organizationId String?
+  userId         String?
+  periodStart    DateTime
+  runs           Int      @default(0)
+  exports        Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([organizationId, userId, periodStart])
+}
+
+model BillingWebhookEvent {
+  id            String   @id @default(cuid())
+  stripeEventId String   @unique
+  type          String
+  processedAt   DateTime @default(now())
+}
+
 model ShareLink {
   id         String    @id @default(cuid())
   projectId  String

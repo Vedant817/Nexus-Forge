@@ -10,6 +10,7 @@ vi.mock('@/lib/db/prisma', () => ({
     project: { findUnique: mocks.findProject },
     analysisRun: { findFirst: mocks.findActive },
     pilotEntitlement: { findUnique: vi.fn(async () => null) },
+    entitlementSnapshot: { findFirst: vi.fn(async () => null) },
     profileRevision: { findFirst: vi.fn(async () => null) },
     $transaction: mocks.transaction,
   },

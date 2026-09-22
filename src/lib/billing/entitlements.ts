@@ -16,6 +16,19 @@ function startOfUtcDay(date = new Date()): Date {
 }
 
 export async function getEffectiveEntitlement(input: { organizationId?: string | null; userId: string }): Promise<EffectiveEntitlement> {
+  const snapshot = input.organizationId
+    ? await prisma.entitlementSnapshot.findFirst({ where: { organizationId: input.organizationId }, orderBy: { revision: 'desc' } })
+    : await prisma.entitlementSnapshot.findFirst({ where: { userId: input.userId }, orderBy: { revision: 'desc' } })
+  if (snapshot) {
+    const allowances = snapshot.allowances as { maxRunsPerDay: number; maxExportsPerDay: number; maxProjects: number; expiresAt?: string | null; suspended?: boolean; plan?: string }
+    return {
+      plan: allowances.plan ?? 'pilot',
+      maxRunsPerDay: allowances.maxRunsPerDay, maxExportsPerDay: allowances.maxExportsPerDay, maxProjects: allowances.maxProjects,
+      revision: snapshot.revision, expiresAt: allowances.expiresAt ? new Date(allowances.expiresAt) : null,
+      suspended: Boolean(allowances.suspended),
+      organizationId: input.organizationId ?? null,
+    }
+  }
   if (input.organizationId) {
     const row = await prisma.pilotEntitlement.findUnique({ where: { organizationId: input.organizationId } })
     if (row) {
