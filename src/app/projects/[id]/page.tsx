@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button"
 import { ErrorBoundary } from "@/components/ErrorBoundary"
 import { GitHubConnectionCard } from "@/components/github-connection-card"
 import { PrivacyPolicyCard } from "@/components/privacy-policy-card"
+import { SetupChecklist } from "@/components/setup-checklist"
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts"
 
 interface AnalysisRunView {
@@ -50,6 +51,7 @@ interface ProjectDetail {
   externalInferenceEnabled: boolean
   ingestionSuspendedAt?: string | null
   inferenceSuspendedAt?: string | null
+  excludedPaths?: string[]
   editRevision: number
   sources: { id: string; type: string; title: string; quarantineStatus?: string }[]
   knowledge: Record<string, unknown> | null
@@ -292,6 +294,16 @@ export default function ProjectPage() {
             </CardContent>
           </Card>
         )}
+
+        <SetupChecklist
+          projectId={project.id}
+          hasSources={(project.sources?.length ?? 0) > 0}
+          repoUrl={project.repoUrl}
+          bindingStatus={project.githubBindingStatus}
+          exclusionsSet={Array.isArray(project.excludedPaths) && project.excludedPaths.length > 0}
+          inferenceDecided={Boolean(project.externalInferenceEnabled) || project.githubBindingStatus === 'active'}
+          baselineReady={project.status === 'completed'}
+        />
 
         <Suspense fallback={null}>
           <GitHubConnectionCard

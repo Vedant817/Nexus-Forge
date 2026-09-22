@@ -34,8 +34,8 @@ export default function RepoReviewPage() {
       .finally(() => setLoading(false))
   }, [params.id])
 
-  if (loading) return <div className="flex items-center justify-center min-h-[60vh]"><div className="text-muted-foreground">Loading...</div></div>
-  if (error) return <div className="flex items-center justify-center min-h-[60vh]"><div className="text-destructive">{error}</div></div>
+  if (loading) return <div className="flex items-center justify-center min-h-[60vh]"><div className="text-muted-foreground" role="status">Loading...</div></div>
+  if (error) return <div className="flex min-h-[60vh] flex-col items-center justify-center gap-3"><div className="text-destructive" role="alert">{error}</div><button className="rounded border px-3 py-1 text-sm" onClick={() => window.location.reload()}>Retry</button></div>
   if (!data) return <div className="flex items-center justify-center min-h-[60vh]"><div className="text-muted-foreground">No repo analysis yet. Add a repo URL and run analysis.</div></div>
 
   const stack = safeParse(data.detectedStack) as string[]

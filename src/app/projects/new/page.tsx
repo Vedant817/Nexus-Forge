@@ -43,6 +43,26 @@ export default function NewProjectPage() {
     <div className="container mx-auto px-4 py-8 max-w-2xl">
       <h1 className="text-3xl font-bold mb-8">Create Project</h1>
 
+      <Card className="mb-4">
+        <CardContent className="pt-6 text-sm text-muted-foreground">
+          <p>No GitHub App yet? Start with the public sample: create this project, paste the sample notes below as a source, and run a deterministic baseline.</p>
+          <div className="mt-2 flex gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setName("Sample walkthrough")
+                setGoal("Learn the evidence-first baseline with pasted notes.")
+                setRepoUrl("")
+                setPrUrl("")
+              }}
+            >
+              Use sample content
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
       <form onSubmit={handleSubmit}>
         <Card>
           <CardHeader>

@@ -18,6 +18,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col bg-background text-foreground">
+        <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:p-2 focus:bg-background">Skip to content</a>
         <header className="border-b">
           <div className="container mx-auto px-4 h-14 flex items-center justify-between">
             <Link href="/" className="text-lg font-bold tracking-tight">Nexus Forge</Link>
@@ -30,11 +31,16 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </nav>
           </div>
         </header>
-        <main className="flex-1">
+        <main id="main-content" className="flex-1">
           {children}
         </main>
         <footer className="border-t py-4 text-center text-xs text-muted-foreground">
-          Nexus Forge — AI-Native Knowledge-to-Ship Operator
+          <div className="flex flex-wrap items-center justify-center gap-4">
+            <span>Nexus Forge — evidence-first repository intelligence</span>
+            <Link className="underline" href="/trust">Trust center</Link>
+            <Link className="underline" href="/support">Support and feedback</Link>
+            <Link className="underline" href="/settings/connections">Connections</Link>
+          </div>
         </footer>
       </body>
     </html>

@@ -31,8 +31,8 @@ export default function HomePage() {
         <h2 className="text-2xl font-bold text-center mb-12">How It Works</h2>
         <div className="grid md:grid-cols-3 gap-8">
           {[
-            { step: "1", title: "Ingest", desc: "Add learning sources — YouTube transcripts, blog posts, Substack articles, AI-agent chat logs, GitHub repos, and PRs." },
-            { step: "2", title: "Analyze", desc: "A five-stage LLM-assisted pipeline explains collected evidence, plans workflows, reviews risks, and drafts proof packs." },
+            { step: "1", title: "Ingest", desc: "Paste learning sources (.txt/.md, transcripts, articles, agent logs) and connect GitHub repos/PRs through the GitHub App. URL content must be pasted; there is no autonomous browsing or execution." },
+            { step: "2", title: "Analyze", desc: "A deterministic baseline seals first; optional model assistance then explains evidence, plans workflows, and drafts review-required outputs." },
             { step: "3", title: "Ship", desc: "Export executable workflows with copyable AI prompts, release-readiness reports, and portfolio-ready proof-of-work documentation." },
           ].map((item) => (
             <div key={item.step} className="text-center p-6 rounded-lg border bg-card">
