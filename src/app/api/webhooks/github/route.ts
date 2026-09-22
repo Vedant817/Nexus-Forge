@@ -117,7 +117,12 @@ export async function POST(request: Request) {
   const ownerId = project.ownerId
   const merged = payload.action === 'closed' && payload.pull_request.merged
   const inferenceAllowed = process.env.INFERENCE_DISABLED?.toLowerCase() !== 'true' && !project.inferenceSuspendedAt && !project.ingestionSuspendedAt && project.externalInferenceEnabled
-  const shouldProcess = merged && inferenceAllowed
+  const triggerSettings = await prisma.triggerSettings.findUnique({ where: { projectId: project.id } })
+  const { isQuietNow, shouldCoalesce } = await import('@/lib/pilot/triggers')
+  const quiet = isQuietNow({ quietStartHour: triggerSettings?.quietStartHour ?? null, quietEndHour: triggerSettings?.quietEndHour ?? null })
+  const recentJob = await prisma.job.findFirst({ where: { projectId: project.id }, orderBy: { createdAt: 'desc' }, select: { createdAt: true } })
+  const coalesced = shouldCoalesce(recentJob?.createdAt ?? null, triggerSettings?.debounceMinutes ?? 5)
+  const shouldProcess = merged && inferenceAllowed && !quiet && !coalesced
   const eventKey = `${repositoryId}:${payload.pull_request.id}:${payload.action}:${payload.pull_request.merged}`
 
   try {
@@ -146,6 +151,7 @@ export async function POST(request: Request) {
           },
         })
       }
+      await tx.project.update({ where: { id: project.id }, data: { lastWebhookDeliveryAt: new Date() } })
     })
   } catch (error) {
     if (isUniqueConstraintError(error)) {

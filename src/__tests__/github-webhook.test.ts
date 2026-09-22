@@ -8,6 +8,9 @@ const mocks = vi.hoisted(() => ({
   createLifecycleDelivery: vi.fn(),
   upsertLifecycle: vi.fn(),
   updateProjects: vi.fn(),
+  updateProject: vi.fn(),
+  findTriggerSettings: vi.fn(),
+  findRecentJob: vi.fn(),
   advisoryLock: vi.fn(),
   transaction: vi.fn(),
 }))
@@ -15,7 +18,9 @@ const mocks = vi.hoisted(() => ({
 vi.mock('server-only', () => ({}))
 vi.mock('@/lib/db/prisma', () => ({
   default: {
-    project: { findFirst: mocks.findProject },
+    project: { findFirst: mocks.findProject, update: mocks.updateProject },
+    triggerSettings: { findUnique: mocks.findTriggerSettings },
+    job: { findFirst: mocks.findRecentJob },
     $transaction: mocks.transaction,
   },
 }))
@@ -68,13 +73,15 @@ describe('GitHub webhook receiver', () => {
     process.env.GITHUB_WEBHOOK_SECRET = 'test-webhook-secret'
     process.env.WEBHOOK_MAX_BODY_BYTES = '1000000'
     mocks.findProject.mockResolvedValue({ id: 'project-1', ownerId: 'user-1', externalInferenceEnabled: true, inferenceSuspendedAt: null, ingestionSuspendedAt: null })
+    mocks.findTriggerSettings.mockResolvedValue(null)
+    mocks.findRecentJob.mockResolvedValue(null)
     mocks.createDelivery.mockResolvedValue({ id: 'webhook-1' })
     mocks.createJob.mockResolvedValue({ id: 'job-1' })
     mocks.transaction.mockImplementation(async (callback: (tx: unknown) => unknown) => callback({
       webhookDelivery: { create: mocks.createDelivery },
       gitHubLifecycleDelivery: { create: mocks.createLifecycleDelivery },
       gitHubInstallationLifecycle: { upsert: mocks.upsertLifecycle },
-      project: { updateMany: mocks.updateProjects },
+      project: { updateMany: mocks.updateProjects, update: mocks.updateProject },
       job: { create: mocks.createJob },
       $queryRaw: mocks.advisoryLock,
     }))

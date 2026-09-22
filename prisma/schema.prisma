@@ -100,6 +100,7 @@ model Project {
   githubAuthorizedByUserId                 String?
   githubBindingLastReconciledAt            DateTime?
   githubBindingReconciliationError         String?
+  lastWebhookDeliveryAt              DateTime?
   githubRepositoryPrivate              Boolean?
   externalInferenceEnabled             Boolean   @default(false)
   externalInferenceAuthorizedBy        String?
@@ -141,6 +142,7 @@ model Project {
   baselineDigests BaselineDigest[]
   profileRevisions ProfileRevision[]
   artifactReviews ArtifactReview[]
+  triggerSettings TriggerSettings?
   organizationId String?
   organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Restrict)
 
@@ -537,6 +539,20 @@ model PilotSchedule {
   createdBy String
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+model TriggerSettings {
+  id                   String   @id @default(cuid())
+  projectId            String   @unique
+  debounceMinutes      Int      @default(5)
+  quietStartHour       Int?
+  quietEndHour         Int?
+  materialityThreshold Int      @default(1)
+  digestEnabled        Boolean  @default(true)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
 
   project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 }
