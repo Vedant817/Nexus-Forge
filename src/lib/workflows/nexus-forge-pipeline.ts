@@ -456,6 +456,22 @@ export async function executeAnalysisJob(job: ClaimedJob, leaseSignal: AbortSign
       throw new Error('GitHub App binding changed or lost authority after this run was queued.')
     }
   }
+  // Deterministic-only runs never reach model inference. Resolve them before
+  // version resolution: deterministic manifests (deterministic-v1) have no
+  // model dispatcher entry by design, so resolving first would permanently
+  // fail every deterministic run before the baseline path below is reached.
+  await assertExecutionAllowed(job, leaseSignal)
+  await publishDeterministicBaseline(job, leaseSignal)
+  const preInferenceRun = await prisma.analysisRun.findUnique({ where: { id: job.analysisRunId! }, select: { processingMode: true } })
+  if ((preInferenceRun?.processingMode ?? run.processingMode) === 'DETERMINISTIC_ONLY') {
+    await prisma.$transaction(async (tx) => {
+      if (!await fenceJobLease(tx, job)) throw new LeaseLostError()
+      await tx.analysisRun.update({ where: { id: job.analysisRunId! }, data: { status: 'SUCCEEDED', inferenceStatus: 'NOT_REQUESTED', completedAt: new Date(), failureClass: null, failureCode: null, failureMessage: null } })
+      const completedJob = await tx.job.updateMany({ where: { id: job.id, leaseToken: job.leaseToken, status: 'RUNNING' }, data: { status: 'SUCCEEDED', completedAt: new Date(), leaseOwner: null, leaseToken: null, leaseExpiresAt: null, heartbeatAt: null } })
+      if (completedJob.count !== 1) throw new LeaseLostError()
+    })
+    return { projectId: job.projectId }
+  }
   const executionVersion = resolveExecutionVersion(run)
 
   await assertExecutionAllowed(job, leaseSignal)
@@ -486,18 +502,6 @@ export async function executeAnalysisJob(job: ClaimedJob, leaseSignal: AbortSign
   poll.unref?.()
   const signal = AbortSignal.any([leaseSignal, cancelController.signal])
   await assertExecutionAllowed(job, signal)
-  await publishDeterministicBaseline(job, signal)
-  const freshRun = await prisma.analysisRun.findUnique({ where: { id: job.analysisRunId! }, select: { processingMode: true, ledgerSealedAt: true } })
-  if ((freshRun?.processingMode ?? run.processingMode) === 'DETERMINISTIC_ONLY') {
-    await prisma.$transaction(async (tx) => {
-      if (!await fenceJobLease(tx, job)) throw new LeaseLostError()
-      await tx.analysisRun.update({ where: { id: job.analysisRunId! }, data: { status: 'SUCCEEDED', inferenceStatus: 'NOT_REQUESTED', completedAt: new Date(), failureClass: null, failureCode: null, failureMessage: null } })
-      const completedJob = await tx.job.updateMany({ where: { id: job.id, leaseToken: job.leaseToken, status: 'RUNNING' }, data: { status: 'SUCCEEDED', completedAt: new Date(), leaseOwner: null, leaseToken: null, leaseExpiresAt: null, heartbeatAt: null } })
-      if (completedJob.count !== 1) throw new LeaseLostError()
-    })
-    clearInterval(poll)
-    return { projectId: job.projectId }
-  }
   const runner = getAgentRunner()
   const executionHash = executionVersionHash({
     pipelineVersion: run.pipelineVersion,

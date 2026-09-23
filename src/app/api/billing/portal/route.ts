@@ -29,9 +29,14 @@ export async function POST(request: Request) {
   })
   if (!customer) return NextResponse.json({ error: 'No billing customer found for this account yet.' }, { status: 404 })
   const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
-  const portal = await stripe.billingPortal.sessions.create({
-    customer: customer.stripeCustomerId,
-    return_url: parsed.data.returnUrl,
-  })
+  let portal: { url: string }
+  try {
+    portal = await stripe.billingPortal.sessions.create({
+      customer: customer.stripeCustomerId,
+      return_url: parsed.data.returnUrl,
+    })
+  } catch {
+    return NextResponse.json({ error: 'Billing provider unavailable. Please try again.' }, { status: 502 })
+  }
   return NextResponse.json({ url: portal.url })
 }

@@ -1,9 +1,13 @@
 import { z } from 'zod'
 
+// Strict structured-output providers (Groq/OpenAI json_schema strict mode)
+// reject schemas where `required` omits any key present in `properties`.
+// Every field here is therefore required with no defaults or optionals: the
+// provider enforces presence, and the repair loop handles the rest.
 export const citationSchema = z.object({
   claim: z.string().min(1).max(500),
   evidenceIds: z.array(z.string().min(1).max(200)).max(20),
-  limitations: z.string().max(500).default(''),
+  limitations: z.string().max(500),
 }).strict()
 
 export const knowledgeDistillerOutputSchema = z.object({
@@ -14,13 +18,13 @@ export const knowledgeDistillerOutputSchema = z.object({
     title: z.string().min(1).max(300),
     description: z.string().max(5000),
     evidence: z.string().max(500),
-    citations: z.array(citationSchema).max(10).default([]),
+    citations: z.array(citationSchema).max(10),
   }).strict()).max(50),
   warningsOrPitfalls: z.array(z.string().min(1).max(500)).max(50),
   termsToUnderstand: z.array(z.string().min(1).max(200)).max(50),
   sourceEvidence: z.array(z.string().min(1).max(200)).max(100),
   recommendedNextAction: z.string().max(2000),
-  citations: z.array(citationSchema).max(20).default([]),
+  citations: z.array(citationSchema).max(20),
 }).strict()
 
 export const repoContextAgentOutputSchema = z.object({
@@ -33,7 +37,7 @@ export const repoContextAgentOutputSchema = z.object({
   missingItems: z.array(z.string().min(1).max(500)).max(100),
   risks: z.array(z.string().min(1).max(1000)).max(100),
   recommendedFixes: z.array(z.string().min(1).max(1000)).max(100),
-  citations: z.array(citationSchema).max(20).default([]),
+  citations: z.array(citationSchema).max(20),
 }).strict()
 
 export const workflowTaskSchema = z.object({
@@ -46,7 +50,7 @@ export const workflowTaskSchema = z.object({
   acceptanceCriteria: z.array(z.string().min(1).max(2000)).max(50),
   suggestedAgentPrompt: z.string().max(20000),
   evidence: z.array(z.string().min(1).max(200)).max(100),
-  citations: z.array(citationSchema).max(10).default([]),
+  citations: z.array(citationSchema).max(10),
 }).strict()
 
 export const workflowPlannerOutputSchema = z.object({
@@ -58,7 +62,7 @@ export const workflowPlannerOutputSchema = z.object({
   suggestedAgentPrompts: z.array(z.string().max(5000)).max(50),
   expectedFilesToChange: z.array(z.string().min(1).max(500)).max(500),
   reviewChecklist: z.array(z.string().min(1).max(1000)).max(200),
-  citations: z.array(citationSchema).max(20).default([]),
+  citations: z.array(citationSchema).max(20),
 }).strict()
 
 export const releaseReadinessOutputSchema = z.object({
@@ -70,7 +74,7 @@ export const releaseReadinessOutputSchema = z.object({
   releaseChecklist: z.array(z.string().min(1).max(1000)).max(200),
   releaseNotesDraft: z.string().max(20000),
   recommendedFixesBeforeMerge: z.array(z.string().min(1).max(1000)).max(100),
-  citations: z.array(citationSchema).max(20).default([]),
+  citations: z.array(citationSchema).max(20),
 }).strict()
 
 export const proofOfWorkOutputSchema = z.object({
@@ -80,5 +84,5 @@ export const proofOfWorkOutputSchema = z.object({
   interviewExplanation: z.string().max(20000),
   linkedinPost: z.string().max(5000),
   missingProofItems: z.array(z.string().min(1).max(1000)).max(100),
-  citations: z.array(citationSchema).max(20).default([]),
+  citations: z.array(citationSchema).max(20),
 }).strict()

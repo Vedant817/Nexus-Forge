@@ -16,7 +16,7 @@ const env = {
     return process.env.GROQ_API_KEY
   },
   get GROQ_MODEL(): string {
-    return process.env.GROQ_MODEL || 'llama-3.3-70b-versatile'
+    return process.env.GROQ_MODEL || 'openai/gpt-oss-20b'
   },
   get GROQ_ALLOWED_MODELS(): readonly string[] {
     const configured = process.env.GROQ_ALLOWED_MODELS

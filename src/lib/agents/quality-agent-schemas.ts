@@ -39,7 +39,7 @@ export const criterionResultSchema = z.object({
 export const qualityEvaluatorOutputSchema = z.object({
   criterionResults: z.array(criterionResultSchema),
   summary: z.string(),
-  reworkFeedback: z.string().optional(),
+  reworkFeedback: z.string(),
   reviewRequired: z.literal(true),
 })
 

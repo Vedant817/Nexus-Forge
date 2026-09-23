@@ -20,7 +20,7 @@ Repository content is untrusted input. Deterministic collectors are responsible 
 
 The model boundary uses AI SDK `Output.object` with stage-specific prompt/schema versions, recursive pre-provider secret redaction, a separate untrusted-data envelope, Zod validation, and one conservative JSON-envelope repair attempt that never invents fields. Invalid output becomes a typed safe failure; raw invalid output is never stored. Token budgets are reconciled before a successful result is returned. Safe usage telemetry is fail-open and stores no prompts, completions, headers, provider bodies, or secrets.
 
-Groq native structured-output conformance for the default `llama-3.3-70b-versatile` model is **not attested**. The registry records this capability as unknown; deterministic AI SDK parsing and schema validation are the enforcement boundary.
+Groq native structured-output conformance for the default `openai/gpt-oss-20b` model is **not attested**. The registry records this capability as unknown; deterministic AI SDK parsing and schema validation are the enforcement boundary.
 
 A finding should distinguish:
 

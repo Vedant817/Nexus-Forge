@@ -25,12 +25,19 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Invalid checkout request.' }, { status: 400 })
   }
   const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
-  const checkout = await stripe.checkout.sessions.create({
-    mode: 'subscription',
-    line_items: [{ price: parsed.data.priceId, quantity: 1 }],
-    success_url: parsed.data.successUrl,
-    cancel_url: parsed.data.cancelUrl,
-    client_reference_id: session.value.id,
-  })
+  let checkout: { url: string | null }
+  try {
+    checkout = await stripe.checkout.sessions.create({
+      mode: 'subscription',
+      line_items: [{ price: parsed.data.priceId, quantity: 1 }],
+      success_url: parsed.data.successUrl,
+      cancel_url: parsed.data.cancelUrl,
+      client_reference_id: session.value.id,
+    })
+  } catch {
+    // Stripe is unreachable or rejected the request (e.g. price archived or
+    // metered). Never leak provider internals; the failure is retryable.
+    return NextResponse.json({ error: 'Billing provider unavailable. Please try again.' }, { status: 502 })
+  }
   return NextResponse.json({ url: checkout.url })
 }

@@ -66,6 +66,13 @@ describe('POST billing checkout', () => {
     expect(mocks.checkoutCreate).not.toHaveBeenCalled()
   })
 
+  it('maps provider failures to 502 without leaking internals', async () => {
+    mocks.checkoutCreate.mockRejectedValueOnce(new Error('StripeInvalidRequestError: metered price'))
+    const response = await POST(checkoutRequest(validBody))
+    expect(response.status).toBe(502)
+    await expect(response.json()).resolves.toEqual({ error: 'Billing provider unavailable. Please try again.' })
+  })
+
   it('returns 503 without Stripe configured and 401 without a session', async () => {
     vi.stubEnv('STRIPE_SECRET_KEY', '')
     expect((await POST(checkoutRequest(validBody))).status).toBe(503)

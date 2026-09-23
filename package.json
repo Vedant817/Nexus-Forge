@@ -15,12 +15,12 @@
     "security:sweep": "tsx scripts/security-sweep.ts",
     "security:sast": "tsx scripts/security-sast.ts",
     "test:integration": "tsx scripts/test-durable-postgres.ts",
-    "backfill:project-owners": "tsx scripts/backfill-project-owners.ts",
-    "worker:analysis": "tsx scripts/analysis-worker.ts",
-    "worker:sandbox": "tsx scripts/sandbox-worker.ts",
-    "schedule:pilot": "tsx scripts/pilot-scheduler.ts",
-    "billing:reconcile": "tsx scripts/billing-reconcile.ts",
-    "cli": "tsx scripts/cli.ts",
+    "backfill:project-owners": "node --conditions=react-server --import tsx scripts/backfill-project-owners.ts",
+    "worker:analysis": "node --conditions=react-server --import tsx scripts/analysis-worker.ts",
+    "worker:sandbox": "node --conditions=react-server --import tsx scripts/sandbox-worker.ts",
+    "schedule:pilot": "node --conditions=react-server --import tsx scripts/pilot-scheduler.ts",
+    "billing:reconcile": "node --conditions=react-server --import tsx scripts/billing-reconcile.ts",
+    "cli": "node --conditions=react-server --import tsx scripts/cli.ts",
     "quality:sandbox": "node --conditions=react-server --import tsx scripts/quality-sandbox.ts"
   },
   "dependencies": {

@@ -60,6 +60,13 @@ describe('POST billing portal', () => {
     )
   })
 
+  it('maps provider failures to 502 without leaking internals', async () => {
+    mocks.portalCreate.mockRejectedValueOnce(new Error('StripeInvalidRequestError: No such customer'))
+    const response = await POST(portalRequest('https://app.example.com/billing'))
+    expect(response.status).toBe(502)
+    await expect(response.json()).resolves.toEqual({ error: 'Billing provider unavailable. Please try again.' })
+  })
+
   it('returns 404 without a billing customer and 503 without Stripe configured', async () => {
     mocks.customerFindFirst.mockResolvedValue(null)
     expect((await POST(portalRequest('https://app.example.com/billing'))).status).toBe(404)
