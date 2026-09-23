@@ -1,12 +1,26 @@
 import "dotenv/config";
 import { defineConfig } from "prisma/config";
 
-// `prisma generate` never connects to the database, so it must work without
-// DATABASE_URL (e.g. Vercel build evaluating config before env is attached).
-// The placeholder is never used for a real connection: `migrate deploy` and
-// the runtime fail closed against it, forcing the real URL to be configured.
-const databaseUrl =
-  process.env.DATABASE_URL ?? "postgresql://localhost:5432/nexus_forge?schema=public";
+// The connection URL always comes from DATABASE_URL (.env locally, platform
+// env on Vercel). It is never hardcoded here.
+const OFFLINE_COMMANDS = new Set(["generate", "validate", "format"]);
+
+function resolveDatabaseUrl(): string {
+  const fromEnv = process.env.DATABASE_URL;
+  if (fromEnv && fromEnv.trim()) return fromEnv;
+  const invoked = process.argv.slice(2).join(" ").trim();
+  const command = invoked.split(/\s+/)[0] ?? "";
+  if (OFFLINE_COMMANDS.has(command)) {
+    // `generate`/`validate`/`format` never connect. `offline.invalid` is
+    // unresolvable by design, so even accidental use fails closed instead of
+    // touching a wrong database. This keeps Vercel builds working when env
+    // is not attached at config-evaluation time.
+    return "postgresql://offline.invalid:5432/nexus_forge?schema=public";
+  }
+  throw new Error(
+    "DATABASE_URL is not set. Set it in .env or your hosting platform's environment variables.",
+  );
+}
 
 export default defineConfig({
   schema: "prisma/schema.prisma",
@@ -14,6 +28,6 @@ export default defineConfig({
     path: "prisma/migrations",
   },
   datasource: {
-    url: databaseUrl,
+    url: resolveDatabaseUrl(),
   },
 });
