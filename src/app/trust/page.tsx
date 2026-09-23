@@ -12,6 +12,7 @@ export default function TrustCenterPage() {
           <p>Deterministic-only runs contact no model provider. They produce sealed evidence, scorecards, and dependency maps.</p>
           <p>When external inference is enabled, redacted source excerpts, repository inventory, and PR context go to the selected provider shown in the run manifest (Groq, OpenAI, Anthropic, Google, Moonshot, or DeepSeek) solely to generate explanations, workflows, and drafts. Secret scanning reduces risk but cannot guarantee complete removal. API keys are stored encrypted, shown only as the last 4 characters, and never logged.</p>
           <p>Every run records provider and model identity plus the privacy decision in its admission manifest.</p>
+          <p>You can also bring your own provider key in Settings → AI models. Personal keys are validated before storage, encrypted with AES-256-GCM, and can be re-validated or deleted at any time. Runs made with a personal key use your own provider quota and are still usage-metered.</p>
         </CardContent>
       </Card>
       <Card className="mb-4">
@@ -31,6 +32,7 @@ export default function TrustCenterPage() {
           <div className="flex gap-4 pt-2">
             <Link className="underline" href="/settings/connections">Repository connections</Link>
             <Link className="underline" href="/settings/sessions">Sessions and activity</Link>
+            <Link className="underline" href="/settings/ai-models">AI models</Link>
           </div>
         </CardContent>
       </Card>

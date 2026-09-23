@@ -78,6 +78,9 @@ Open <http://localhost:3000>.
 | `GROQ_API_KEY` | For LLM stages | Groq API key |
 | `GROQ_MODEL` | No | Default model used by the stage registry |
 | `GROQ_ALLOWED_MODELS` | No | Comma-separated execution allowlist; defaults to only `GROQ_MODEL` |
+| `LLM_PROVIDER` / `LLM_MODEL` / `LLM_ALLOWED_MODELS` | No | Multi-provider default (`groq` fallback) and `"provider:model"` allowlist entries |
+| `<PROVIDER>_API_KEY` / `<PROVIDER>_MODEL` | For that provider | Platform keys and defaults for `openai`, `anthropic`, `google`, `moonshot`, `deepseek` |
+| `LLM_USER_KEY_MASTER_SECRET` | For personal keys | At least 32 characters; enables Settings AI models (BYOK, AES-256-GCM) |
 | `GITHUB_APP_ID` | For repository collection | GitHub App identifier used to sign short-lived app JWTs |
 | `GITHUB_APP_PRIVATE_KEY` / `_BASE64` | For repository collection | GitHub App private key; configure exactly one secret form |
 | `GITHUB_WEBHOOK_SECRET` | For webhooks | Secret used to authenticate raw webhook bytes; see the [webhook security runbook](docs/operations/webhook-security.md) |
