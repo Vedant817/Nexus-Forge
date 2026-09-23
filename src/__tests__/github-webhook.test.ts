@@ -215,3 +215,97 @@ describe('GitHub webhook receiver', () => {
     })
   })
 })
+
+describe('GitHub repository webhook events', () => {
+  beforeEach(() => {
+    process.env.GITHUB_WEBHOOK_SECRET = 'test-webhook-secret'
+    process.env.WEBHOOK_MAX_BODY_BYTES = '1000000'
+    mocks.transaction.mockImplementation(async (callback: (tx: unknown) => unknown) => callback({
+      gitHubLifecycleDelivery: { create: mocks.createLifecycleDelivery },
+      project: { updateMany: mocks.updateProjects },
+      $queryRaw: mocks.advisoryLock,
+    }))
+  })
+
+  afterEach(() => {
+    vi.clearAllMocks()
+    delete process.env.GITHUB_WEBHOOK_SECRET
+    delete process.env.WEBHOOK_MAX_BODY_BYTES
+  })
+
+  function repositoryRequest(action: string, repository: Record<string, unknown>, deliveryId = `delivery-repo-${action}`): Request {
+    return signedRequest(JSON.stringify({ action, installation: { id: 42 }, repository }), {
+      'x-github-event': 'repository',
+      'x-github-delivery': deliveryId,
+    })
+  }
+
+  const repo = { id: 7, full_name: 'Owner/Renamed', private: false }
+
+  it('syncs the full name on rename without disabling the binding', async () => {
+    const response = await POST(repositoryRequest('renamed', repo))
+
+    expect(response.status).toBe(202)
+    expect(mocks.updateProjects).toHaveBeenCalledWith({
+      where: { githubInstallationId: '42', githubRepositoryId: '7' },
+      data: { githubRepositoryFullName: 'Owner/Renamed' },
+    })
+  })
+
+  it('syncs the visibility flag that the inference gate relies on', async () => {
+    const response = await POST(repositoryRequest('privatized', { ...repo, private: true }))
+
+    expect(response.status).toBe(202)
+    expect(mocks.updateProjects).toHaveBeenCalledWith({
+      where: { githubInstallationId: '42', githubRepositoryId: '7' },
+      data: { githubRepositoryPrivate: true },
+    })
+  })
+
+  it('parks bindings on transfer instead of trusting the new owner', async () => {
+    const response = await POST(repositoryRequest('transferred', repo))
+
+    expect(response.status).toBe(202)
+    expect(mocks.updateProjects).toHaveBeenCalledWith({
+      where: { githubInstallationId: '42', githubRepositoryId: '7' },
+      data: { githubBindingStatus: 'transferred', githubBindingDisabledAt: expect.any(Date) },
+    })
+  })
+
+  it('accepts cosmetic edits without writing delivery rows', async () => {
+    const response = await POST(repositoryRequest('edited', { id: 7, full_name: 'Owner/Repo', private: false }))
+
+    expect(response.status).toBe(202)
+    expect(mocks.createLifecycleDelivery).not.toHaveBeenCalled()
+    expect(mocks.updateProjects).not.toHaveBeenCalled()
+  })
+
+  it('rejects tampered repository payloads before touching bindings', async () => {
+    const body = JSON.stringify({ action: 'renamed', installation: { id: 42 }, repository: repo })
+    const tampered = JSON.stringify({ action: 'transferred', installation: { id: 42 }, repository: repo })
+    const signature = `sha256=${createHmac('sha256', 'test-webhook-secret').update(body, 'utf8').digest('hex')}`
+    const request = new Request('http://localhost/api/webhooks/github', {
+      method: 'POST',
+      body: tampered,
+      headers: {
+        'content-type': 'application/json',
+        'x-github-event': 'repository',
+        'x-github-delivery': 'delivery-repo-tampered',
+        'x-hub-signature-256': signature,
+      },
+    })
+
+    const response = await POST(request)
+
+    expect(response.status).toBe(401)
+    expect(mocks.updateProjects).not.toHaveBeenCalled()
+  })
+
+  it('rejects unknown repository actions and malformed payloads', async () => {
+    const unknown = await POST(repositoryRequest('stargazed', repo, 'delivery-repo-unknown'))
+    expect(unknown.status).toBe(400)
+    const malformed = await POST(repositoryRequest('renamed', { id: 7 }, 'delivery-repo-malformed'))
+    expect(malformed.status).toBe(400)
+    expect(mocks.updateProjects).not.toHaveBeenCalled()
+  })
+})

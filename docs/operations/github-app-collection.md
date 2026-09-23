@@ -2,7 +2,7 @@
 
 ## Required App configuration
 
-Configure a GitHub App with a webhook secret and read-only **Contents**, **Pull requests**, and **Checks** repository permissions. Subscribe to `pull_request`, `installation`, and `installation_repositories` events. Set the Setup URL to `<BETTER_AUTH_URL>/api/github/app/setup`. `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET` must be this same App's user-authorization credentials; Nexus Forge verifies the client ID through `GET /app`. Set `GITHUB_APP_ID`, one private-key environment variable, `GITHUB_WEBHOOK_SECRET`, and the pinned REST API version.
+Configure a GitHub App with a webhook secret and read-only **Contents**, **Pull requests**, and **Checks** repository permissions. Subscribe to `pull_request`, `installation`, `installation_repositories`, and `repository` events. `repository` deliveries keep binding identity correct: renames sync the stored full name, privatized/publicized syncs the visibility flag the inference gate relies on, and delete/transfer/archive park bindings in a non-active state for owner re-confirmation. Cosmetic edits (description, homepage) are accepted without writes. Set the Setup URL to `<BETTER_AUTH_URL>/api/github/app/setup`. `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET` must be this same App's user-authorization credentials; Nexus Forge verifies the client ID through `GET /app`. Set `GITHUB_APP_ID`, one private-key environment variable, `GITHUB_WEBHOOK_SECRET`, and the pinned REST API version.
 
 Shared personal access tokens are rejected. App JWTs use RS256 and expire within ten minutes. Installation tokens are restricted to the bound numeric repository ID and requested read permissions, expire within one hour, and are cached only as a process optimization.
 

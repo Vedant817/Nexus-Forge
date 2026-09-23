@@ -8,6 +8,7 @@ import {
   githubInstallationRepositoriesWebhookSchema,
   githubInstallationWebhookSchema,
   githubPullRequestWebhookSchema,
+  githubRepositoryWebhookSchema,
   readBoundedWebhookBody,
   verifyGitHubWebhookSignature,
   WebhookBodyTooLargeError,
@@ -32,7 +33,7 @@ export async function POST(request: Request) {
   if (!signature || !deliveryId || !DELIVERY_ID_PATTERN.test(deliveryId)) {
     return NextResponse.json({ error: 'Missing or invalid GitHub webhook headers' }, { status: 401 })
   }
-  if (!['pull_request', 'installation', 'installation_repositories'].includes(event ?? '')) {
+  if (!['pull_request', 'installation', 'installation_repositories', 'repository'].includes(event ?? '')) {
     return NextResponse.json({ error: 'Unsupported GitHub event' }, { status: 400 })
   }
 
@@ -94,6 +95,48 @@ export async function POST(request: Request) {
         }
       })
       invalidateInstallationTokens(installationId)
+      return NextResponse.json({ accepted: true }, { status: 202 })
+    } catch (error) {
+      if (isUniqueConstraintError(error)) return NextResponse.json({ accepted: true, replay: true }, { status: 202 })
+      throw error
+    }
+  }
+
+  if (event === 'repository') {
+    const repoParsed = githubRepositoryWebhookSchema.safeParse(json)
+    if (!repoParsed.success) return NextResponse.json({ error: 'Invalid repository payload' }, { status: 400 })
+    const installationId = String(repoParsed.data.installation.id)
+    const repositoryId = String(repoParsed.data.repository.id)
+    const action = repoParsed.data.action
+    // Repository renames and visibility flips change binding identity and the
+    // inference gate's visibility assumption. Apply verified state changes;
+    // cosmetic edits are accepted without writes to avoid delivery-row spam.
+    // Never auto-reactivate: archive/unarchive/transfer park bindings in a
+    // non-active state for owner re-confirmation.
+    const stateChanging = ['renamed', 'privatized', 'publicized', 'deleted', 'archived', 'unarchived', 'transferred'].includes(action)
+    try {
+      await prisma.$transaction(async (tx) => {
+        await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${installationId}, 0))`
+        if (!stateChanging) return
+        const scope = { githubInstallationId: installationId, githubRepositoryId: repositoryId }
+        const safeLifecyclePayload = JSON.parse(JSON.stringify(redactStructuredValue({
+          action,
+          installation: { id: repoParsed.data.installation.id },
+          repository: { id: repoParsed.data.repository.id, full_name: repoParsed.data.repository.full_name, private: repoParsed.data.repository.private },
+        })))
+        await tx.gitHubLifecycleDelivery.create({
+          data: { deliveryId, event, action, installationId, payloadSha256, payload: safeLifecyclePayload },
+        })
+        if (action === 'renamed') {
+          await tx.project.updateMany({ where: scope, data: { githubRepositoryFullName: repoParsed.data.repository.full_name } })
+        } else if (action === 'privatized' || action === 'publicized') {
+          await tx.project.updateMany({ where: scope, data: { githubRepositoryPrivate: action === 'privatized' } })
+        } else if (action === 'deleted' || action === 'transferred') {
+          await tx.project.updateMany({ where: scope, data: { githubBindingStatus: action, githubBindingDisabledAt: new Date() } })
+        } else {
+          await tx.project.updateMany({ where: scope, data: { githubBindingStatus: 'reconciliation_required', githubBindingDisabledAt: new Date() } })
+        }
+      })
       return NextResponse.json({ accepted: true }, { status: 202 })
     } catch (error) {
       if (isUniqueConstraintError(error)) return NextResponse.json({ accepted: true, replay: true }, { status: 202 })

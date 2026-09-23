@@ -36,6 +36,16 @@ export const githubInstallationRepositoriesWebhookSchema = z.object({
   repositories_removed: z.array(z.object({ id: z.number().int().positive().safe(), full_name: z.string().max(300) })).default([]),
 }).passthrough()
 
+export const githubRepositoryWebhookSchema = z.object({
+  action: z.enum(['created', 'deleted', 'archived', 'unarchived', 'edited', 'renamed', 'transferred', 'privatized', 'publicized']),
+  installation: z.object({ id: z.number().int().positive().safe() }),
+  repository: z.object({
+    id: z.number().int().positive().safe(),
+    full_name: z.string().min(3).max(300),
+    private: z.boolean(),
+  }),
+})
+
 export type GitHubPullRequestWebhook = z.infer<typeof githubPullRequestWebhookSchema>
 
 export async function readBoundedWebhookBody(request: Request, maxBytes: number): Promise<Buffer> {
