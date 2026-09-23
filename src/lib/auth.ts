@@ -61,14 +61,10 @@ export const auth = betterAuth({
               avatar_url?: string
             }
             let emailsStatus = 0
-            let grantedScopes = ''
             let emails: Array<{ email?: string; primary?: boolean; verified?: boolean }> | null = null
             try {
               const emailsResponse = await fetch('https://api.github.com/user/emails', { headers, signal: AbortSignal.timeout(10_000) })
               emailsStatus = emailsResponse.status
-              // GitHub echoes the token's granted scopes here; safe to log and
-              // decisive for distinguishing a scope problem from an account one.
-              grantedScopes = emailsResponse.headers.get('x-oauth-scopes') ?? ''
               if (emailsResponse.ok) {
                 const parsed: unknown = await emailsResponse.json()
                 if (Array.isArray(parsed)) emails = parsed
@@ -78,7 +74,7 @@ export const auth = betterAuth({
             }
             const { email, emailVerified } = resolveGitHubEmail(profile, emails)
             if (!email) {
-              logStructured('warn', `[auth] GitHub sign-in returned no email (granted-scopes: ${grantedScopes || 'none-reported'})`, {
+              logStructured('warn', '[auth] GitHub sign-in returned no email', {
                 action: 'oauth-github-email',
                 status: emailsStatus,
                 code: diagnoseGitHubEmail(emailsStatus, emails),
