@@ -1,14 +1,13 @@
 import { JobKind, type Prisma } from '@prisma/client'
 import prisma from '@/lib/db/prisma'
-import config from '@/lib/config/env'
 import { redactSecrets } from '@/lib/security/secret-redaction'
 import { contentHash } from './hash'
-import { assertGroqModelAllowed } from './version-registry'
+import { assertModelAllowed, getDefaultModelRef } from '@/lib/ai/providers/resolve'
 import { preflightAdmission } from '@/lib/execution/preflight'
 import {
   ANALYSIS_STAGES,
   DEFAULT_MAX_ATTEMPTS,
-  MODEL_CONFIG_VERSION,
+  MODEL_CONFIG_VERSION_V2,
   PIPELINE_VERSION,
   PROMPT_VERSION,
 } from './constants'
@@ -102,19 +101,20 @@ export async function enqueueAnalysis(projectId: string, ownerId: string): Promi
     prUrl: inputSnapshot.project.prUrl,
     sources: project.sources.map((source) => ({ id: source.id, type: source.type, title: source.title, content: source.rawContent })),
   }
+  const defaultRef = getDefaultModelRef()
   const preflight = preflightAdmission({
     project: preflightProject,
     actorId: ownerId,
     inputSnapshot,
     inputHash,
-    modelConfig: { provider: 'groq', model: config.GROQ_MODEL },
+    modelConfig: { provider: defaultRef.provider, model: defaultRef.model },
     entitlement,
     profile,
   })
   const processingMode = preflight.processingMode
   const inferenceEnabled = processingMode === 'INFERENCE_ENABLED'
-  if (inferenceEnabled) assertGroqModelAllowed(config.GROQ_MODEL)
-  const modelConfig = inferenceEnabled ? { provider: 'groq', model: config.GROQ_MODEL } : { provider: 'none', model: 'deterministic-only' }
+  if (inferenceEnabled) assertModelAllowed(defaultRef.provider, defaultRef.model)
+  const modelConfig = inferenceEnabled ? { provider: defaultRef.provider, model: defaultRef.model } : { provider: 'none', model: 'deterministic-only' }
   const { manifest, digest } = (() => {
     const resolved = preflightAdmission({
       project: preflightProject,
@@ -139,7 +139,7 @@ export async function enqueueAnalysis(projectId: string, ownerId: string): Promi
           inputHash,
           pipelineVersion: PIPELINE_VERSION,
           promptVersion: PROMPT_VERSION,
-          modelConfigVersion: inferenceEnabled ? MODEL_CONFIG_VERSION : 'deterministic-v1',
+          modelConfigVersion: inferenceEnabled ? MODEL_CONFIG_VERSION_V2 : 'deterministic-v1',
           modelConfig,
           processingMode,
           inferenceStatus: inferenceEnabled ? 'PENDING' : 'NOT_REQUESTED',

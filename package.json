@@ -24,7 +24,12 @@
     "quality:sandbox": "node --conditions=react-server --import tsx scripts/quality-sandbox.ts"
   },
   "dependencies": {
-    "@ai-sdk/groq": "^4.0.5",
+    "@ai-sdk/anthropic": "^4.0.60",
+    "@ai-sdk/deepseek": "^3.0.50",
+    "@ai-sdk/google": "^4.0.77",
+    "@ai-sdk/groq": "^4.0.46",
+    "@ai-sdk/openai": "^4.0.72",
+    "@ai-sdk/openai-compatible": "^3.0.53",
     "@base-ui/react": "^1.6.0",
     "@hello-pangea/dnd": "^18.0.1",
     "@hookform/resolvers": "^5.4.0",
@@ -34,7 +39,7 @@
     "@prisma/client": "7.10.0",
     "@tailwindcss/postcss": "4.3.3",
     "@xyflow/react": "^12.11.2",
-    "ai": "^7.0.16",
+    "ai": "^7.0.111",
     "better-auth": "^1.6.26",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

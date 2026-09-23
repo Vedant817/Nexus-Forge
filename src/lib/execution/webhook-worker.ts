@@ -18,7 +18,7 @@ const webhookDraftSchema = z.object({
 })
 
 const webhookJobPayloadSchema = z.object({
-  provider: z.literal('groq'),
+  provider: z.enum(['groq', 'openai', 'anthropic', 'google', 'moonshot', 'deepseek']),
   model: z.string().min(1).max(200),
 }).strict()
 

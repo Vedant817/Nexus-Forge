@@ -1,11 +1,18 @@
 import { AnalysisStageName } from '@prisma/client'
 import { z } from 'zod'
-import { MODEL_CONFIG_VERSION, PIPELINE_VERSION, PROMPT_VERSION } from './constants'
+import { MODEL_CONFIG_VERSION, MODEL_CONFIG_VERSION_V2, PIPELINE_VERSION, PROMPT_VERSION } from './constants'
 import config from '@/lib/config/env'
 import { ModelConfigurationError } from '@/lib/ai/errors'
+import { PROVIDER_IDS, type ProviderId } from '@/lib/ai/providers/types'
+import { assertModelAllowed } from '@/lib/ai/providers/resolve'
 
 const modelConfigSchema = z.object({
   provider: z.literal('groq'),
+  model: z.string().min(1).max(200),
+}).strict()
+
+const modelConfigSchemaV2 = z.object({
+  provider: z.enum(PROVIDER_IDS),
   model: z.string().min(1).max(200),
 }).strict()
 
@@ -30,7 +37,15 @@ export type ResolvedExecutionVersion = {
   stages: Readonly<Record<AnalysisStageName, StageExecutionIdentity>>
 }
 
-type VersionDispatcher = (modelConfig: unknown) => ResolvedExecutionVersion
+export type ResolvedExecutionVersionV2 = {
+  provider: ProviderId
+  model: string
+  structuredOutputCapability: 'unknown'
+  enforcementBoundary: 'ai-sdk-json-schema-parser'
+  stages: Readonly<Record<AnalysisStageName, StageExecutionIdentity>>
+}
+
+type VersionDispatcher = (modelConfig: unknown) => ResolvedExecutionVersion | ResolvedExecutionVersionV2
 
 const versionKey = (pipeline: string, prompt: string, modelConfig: string) =>
   `${pipeline}:${prompt}:${modelConfig}`
@@ -62,9 +77,21 @@ export const EXECUTION_VERSION_REGISTRY: Readonly<Record<string, VersionDispatch
     stages: STAGE_EXECUTION_REGISTRY,
     }
   },
+  [versionKey(PIPELINE_VERSION, PROMPT_VERSION, MODEL_CONFIG_VERSION_V2)]: (modelConfig) => {
+    const parsed = modelConfigSchemaV2.parse(modelConfig)
+    assertModelAllowed(parsed.provider, parsed.model)
+    return {
+    ...parsed,
+    // No provider is attested strict; the AI SDK JSON-schema parser boundary
+    // (repairingObjectOutput + Zod) remains authoritative for every provider.
+    structuredOutputCapability: 'unknown',
+    enforcementBoundary: 'ai-sdk-json-schema-parser',
+    stages: STAGE_EXECUTION_REGISTRY,
+    }
+  },
 })
 
-export function resolveExecutionVersion(version: PersistedExecutionVersion): ResolvedExecutionVersion {
+export function resolveExecutionVersion(version: PersistedExecutionVersion): ResolvedExecutionVersion | ResolvedExecutionVersionV2 {
   const dispatcher = EXECUTION_VERSION_REGISTRY[
     versionKey(version.pipelineVersion, version.promptVersion, version.modelConfigVersion)
   ]

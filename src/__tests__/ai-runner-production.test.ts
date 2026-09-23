@@ -3,7 +3,7 @@ import { z } from 'zod'
 
 const mocks = vi.hoisted(() => ({
   generateText: vi.fn(),
-  model: vi.fn((id: string) => ({ id })),
+  model: vi.fn((id: string) => ({ specificationVersion: 'v4', provider: 'groq-mock', modelId: id, doGenerate: vi.fn(), doStream: vi.fn() })),
   reserve: vi.fn(),
   reconcile: vi.fn(),
   release: vi.fn(),
@@ -64,7 +64,7 @@ describe('production AI SDK boundary', () => {
     expect(mocks.model).toHaveBeenCalledWith('recorded-model')
     expect(mocks.reserve).toHaveBeenCalledWith(expect.objectContaining({ requestedModel: 'recorded-model' }))
     expect(mocks.generateText).toHaveBeenCalledWith(expect.objectContaining({
-      model: { id: 'recorded-model' },
+      model: expect.objectContaining({ modelId: 'recorded-model', specificationVersion: 'v4' }),
       abortSignal: abortController.signal,
       maxOutputTokens: 100,
       prompt: expect.not.stringContaining(`ghp_${'b'.repeat(40)}`),

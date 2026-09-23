@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { contentHash } from '@/lib/execution/hash'
-import { PIPELINE_VERSION, PROMPT_VERSION, MODEL_CONFIG_VERSION } from '@/lib/execution/constants'
+import { PIPELINE_VERSION, PROMPT_VERSION, MODEL_CONFIG_VERSION, MODEL_CONFIG_VERSION_V2 } from '@/lib/execution/constants'
 import { COLLECTOR_VERSION, SCORECARD_VERSION } from '@/lib/evidence/registry'
 import { ADMISSION_MANIFEST_VERSION, PRIVACY_ACK_VERSION, resolveProcessingMode } from '@/lib/ai/data-policy'
 import { isInferenceEnabled } from '@/lib/ai/inference-policy'
@@ -80,7 +80,7 @@ export function preflightAdmission(input: { project: PreflightProject; actorId: 
     template: input.template ?? null,
     pipelineVersion: PIPELINE_VERSION,
     promptVersion: PROMPT_VERSION,
-    modelConfigVersion: input.modelConfig && (input.modelConfig as { provider?: string }).provider !== 'none' ? MODEL_CONFIG_VERSION : 'deterministic-v1',
+    modelConfigVersion: input.modelConfig && (input.modelConfig as { provider?: string }).provider !== 'none' ? MODEL_CONFIG_VERSION_V2 : 'deterministic-v1',
     collectorVersion: COLLECTOR_VERSION,
     scorecardVersion: SCORECARD_VERSION,
     codeVersion: CODE_VERSION,

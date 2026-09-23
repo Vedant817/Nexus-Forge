@@ -1,9 +1,10 @@
 import { AnalysisStageName } from '@prisma/client'
 import { z } from 'zod'
 import { generateText, Output, type LanguageModel } from 'ai'
-import { createGroq } from '@ai-sdk/groq'
-import config from '@/lib/config/env'
 import { logStructured } from '@/lib/observability/logger'
+import { resolveEffectiveApiKey } from '@/lib/ai/byok-resolver'
+import { assertModelAllowed, getDefaultModelRef } from '@/lib/ai/providers/resolve'
+import { createLanguageModel } from '@/lib/ai/providers/registry'
 import { redactSecrets, redactStructuredValue } from '@/lib/security/secret-redaction'
 import { hasBlockingFinding, scanSecretContent, SECRET_SCANNER_VERSION } from '@/lib/security/secret-scanner'
 import { assertInferenceEnabled } from '@/lib/ai/inference-policy'
@@ -15,7 +16,7 @@ import {
   reserveAiBudget,
   type AiTelemetryContext,
 } from '@/lib/ai/budget'
-import { assertGroqModelAllowed, STAGE_EXECUTION_REGISTRY } from '@/lib/execution/version-registry'
+import { STAGE_EXECUTION_REGISTRY } from '@/lib/execution/version-registry'
 import {
   AgentOutputValidationError,
   BudgetAccountingError,
@@ -98,7 +99,7 @@ export type AgentInvocationContext = {
   projectId?: string
   operation: string
   abortSignal?: AbortSignal
-  provider?: 'groq'
+  provider?: import('@/lib/ai/providers/types').ProviderId
   model?: string
   pipelineVersion?: string
   promptId?: string
@@ -223,7 +224,7 @@ async function recordTelemetryFailOpen(
     await recordAiUsageEvent(context, result, reservationId)
   } catch {
     // Observability is deliberately fail-open. Never log payloads/provider details here.
-    console.warn('[ai-boundary] Safe usage telemetry could not be persisted.')
+    logStructured('warn', '[ai-boundary] Safe usage telemetry could not be persisted.')
   }
 }
 
@@ -244,8 +245,9 @@ export async function runAgentViaAiSdk<T>(
   context?: AgentInvocationContext,
 ): Promise<T> {
   const startedAt = Date.now()
-  const requestedProvider = context?.provider ?? 'groq'
-  const requestedModel = context?.model ?? config.GROQ_MODEL
+  const defaultRef = getDefaultModelRef()
+  const requestedProvider = context?.provider ?? defaultRef.provider
+  const requestedModel = context?.model ?? defaultRef.model
   const telemetryContext: AiTelemetryContext | null = context ? {
     userId: context.userId,
     projectId: context.projectId,
@@ -265,17 +267,16 @@ export async function runAgentViaAiSdk<T>(
 
   try {
     assertInferenceEnabled()
-    if (requestedProvider !== 'groq') throw new ModelConfigurationError()
     if ((context?.testLanguageModel || context?.testTimeout) && process.env.NODE_ENV !== 'test') {
       throw new ModelConfigurationError('Test model-boundary injection is disabled outside tests.')
     }
-    if (!context?.testLanguageModel) assertGroqModelAllowed(requestedModel)
-    const apiKey = config.GROQ_API_KEY
-    if (!apiKey && !context?.testLanguageModel) {
-      throw new ModelConfigurationError('GROQ_API_KEY is not configured.')
+    if (!context?.testLanguageModel) assertModelAllowed(requestedProvider, requestedModel)
+    const resolvedKey = await resolveEffectiveApiKey({ provider: requestedProvider, userId: context?.userId ?? '' })
+    if (!resolvedKey.apiKey && !context?.testLanguageModel) {
+      throw new ModelConfigurationError(`No API key is configured for provider '${requestedProvider}'.`)
     }
 
-    const languageModel = context?.testLanguageModel ?? createGroq({ apiKey })(requestedModel)
+    const languageModel = context?.testLanguageModel ?? createLanguageModel({ provider: requestedProvider, model: requestedModel }, resolvedKey.apiKey ?? '')
     responseProvider = typeof languageModel === 'string' ? undefined : languageModel.provider
     const safeInput = boundUntrustedInput(input)
     if (telemetryContext) reservation = await reserveAiBudget(telemetryContext)
