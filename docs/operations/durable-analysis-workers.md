@@ -25,6 +25,30 @@ ANALYSIS_JOB_LEASE_MS=60000             # minimum 5000
 
 Workers fail closed when `NODE_ENV` is absent/invalid and reject a shared `GITHUB_TOKEN` in every mode. Private-repository collection uses repository-bound GitHub App installation tokens; configure the App credentials described in [GitHub App collection](github-app-collection.md).
 
+### Free-tier pilot option: GitHub Actions
+
+The public repository includes `.github/workflows/workers.yml`. It runs one
+analysis job per scheduled invocation (`--once`) every five minutes, or on
+manual dispatch, against the same PostgreSQL database as the Vercel web app.
+GitHub schedules are best-effort and can be delayed or skipped; the 10-minute
+job timeout also limits long analyses. Use an always-on worker host if you need
+prompt queue processing or a service-level guarantee. The separate
+`pilot-weekly.yml` schedules accepted-baseline work.
+
+For that workflow, configure GitHub Actions repository secrets
+`WORKERS_DATABASE_URL`, `GROQ_API_KEY`, `GITHUB_APP_ID`, and
+`GITHUB_APP_PRIVATE_KEY_BASE64`. **BYOK requires the exact same
+`LLM_USER_KEY_MASTER_SECRET` as the Vercel web deployment on the worker**;
+otherwise the worker cannot decrypt user keys and may fall back to platform
+keys. Set any other platform provider API keys on the worker if those providers
+are enabled. Keep secrets in GitHub Actions, never in workflow YAML.
+
+`npm run worker:sandbox` is a local synthetic-check prototype: it does not
+execute the advertised checks and is blocked in production. Do not run it
+against a production database or use its PASS results as independent evidence.
+Real sandbox verification requires a separate isolated executor and an
+approval/attestation workflow; it is not deployed by the free-tier schedule.
+
 ## Leasing, recovery, and retry
 
 Claims use a single PostgreSQL `FOR UPDATE SKIP LOCKED` statement. Each claim gets a random lease token and increments `attemptCount`. The worker heartbeats at approximately one third of the lease interval. Expired `RUNNING` jobs become claimable by another worker. Every stage checkpoint, final compatibility publication, webhook artifact publication, and terminal job transition conditionally verifies the current lease token.

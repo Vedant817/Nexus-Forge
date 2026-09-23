@@ -23,11 +23,11 @@ function runFixedCheck(checkId: string, signal: AbortSignal): Promise<{ exitCode
 }
 
 async function main(): Promise<void> {
-  // Fail-closed placeholder: this stub runs synthetic checks only. Production
-  // verification must go through runQualitySandbox; never enable this stub in
-  // production where real check evidence is required.
-  if (process.env.NODE_ENV === 'production' && process.env.SANDBOX_WORKER_ENABLED !== 'true') {
-    throw new Error('Sandbox worker stub is disabled in production. Enable only the runQualitySandbox verification path.')
+  // This script produces synthetic checks, not real typecheck/lint evidence.
+  // Do not allow an environment flag to turn synthetic PASS records into
+  // production verification results.
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('Synthetic sandbox worker is disabled in production; use real isolated verification infrastructure.')
   }
   const approved = await prisma.verificationRequest.findMany({ where: { status: 'APPROVED' }, take: 5, orderBy: { createdAt: 'asc' } })
   for (const verification of approved) {

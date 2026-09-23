@@ -1,9 +1,8 @@
 name: Workers
 
-# Free-tier durable execution: this repository is public, so scheduled GitHub
-# Actions runs cost nothing. The analysis and sandbox workers are single-pass
-# processes (analysis takes --once; sandbox exits after its batch), so a
-# 5-minute cadence keeps queue latency low without overlapping runs.
+# Free-tier pilot execution: the analysis worker is single-pass (--once).
+# Schedules are best-effort and may be delayed or dropped; this is not an
+# always-on worker and must not be used for latency/SLA guarantees.
 #
 # Required repository secrets (Settings -> Secrets and variables -> Actions):
 #   WORKERS_DATABASE_URL      Neon pooled connection string (same DB as Vercel)
@@ -11,10 +10,10 @@ name: Workers
 #   GITHUB_APP_ID             GitHub App id for repository collection
 #   GITHUB_APP_PRIVATE_KEY_BASE64  App private key, base64 form (no newlines)
 #
-# Optional secrets (unset features stay disabled, fail-closed):
-#   OPENAI_API_KEY / ANTHROPIC_API_KEY / GOOGLE_API_KEY / MOONSHOT_API_KEY / DEEPSEEK_API_KEY
-#   LLM_USER_KEY_MASTER_SECRET is NOT set here on purpose: user keys are only
-#   decrypted inside the web runtime, never in batch workers.
+# For BYOK runs, set LLM_USER_KEY_MASTER_SECRET to the EXACT SAME secret as
+# Vercel. The worker decrypts the selected user's key at inference time.
+# Platform keys for other providers are optional, if configured on Vercel.
+# Never run the synthetic sandbox-worker.ts stub against production data.
 
 on:
   schedule:
@@ -30,23 +29,9 @@ concurrency:
 
 jobs:
   durable:
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    env:
-      NODE_ENV: production
-      DATABASE_URL: ${{ secrets.WORKERS_DATABASE_URL }}
-      GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
-      GROQ_MODEL: openai/gpt-oss-20b
-      GROQ_ALLOWED_MODELS: openai/gpt-oss-20b
-      GITHUB_APP_ID: ${{ secrets.GITHUB_APP_ID }}
-      GITHUB_APP_PRIVATE_KEY_BASE64: ${{ secrets.GITHUB_APP_PRIVATE_KEY_BASE64 }}
-      GITHUB_API_VERSION: '2022-11-28'
-      # The sandbox script is a synthetic-check stub that refuses production
-      # unless explicitly enabled. Real check evidence must go through the
-      # runQualitySandbox verification path before any paid pilot depends on it.
-      SANDBOX_WORKER_ENABLED: 'true'
-      ANALYSIS_JOB_LEASE_MS: '60000'
-      WORKER_CONCURRENCY: '2'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -54,8 +39,22 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npx prisma generate
       - name: Run analysis worker (single pass)
         run: npm run worker:analysis -- --once
-      - name: Run sandbox worker (single batch)
-        run: npm run worker:sandbox
+        env:
+          NODE_ENV: production
+          DATABASE_URL: ${{ secrets.WORKERS_DATABASE_URL }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          GROQ_MODEL: openai/gpt-oss-20b
+          GROQ_ALLOWED_MODELS: openai/gpt-oss-20b
+          GITHUB_APP_ID: ${{ secrets.GITHUB_APP_ID }}
+          GITHUB_APP_PRIVATE_KEY_BASE64: ${{ secrets.GITHUB_APP_PRIVATE_KEY_BASE64 }}
+          GITHUB_API_VERSION: '2022-11-28'
+          LLM_USER_KEY_MASTER_SECRET: ${{ secrets.LLM_USER_KEY_MASTER_SECRET }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+          MOONSHOT_API_KEY: ${{ secrets.MOONSHOT_API_KEY }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          ANALYSIS_JOB_LEASE_MS: '60000'
+          WORKER_CONCURRENCY: '2'

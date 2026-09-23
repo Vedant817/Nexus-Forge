@@ -1,5 +1,7 @@
 # Nexus Forge pilot deployment (version-controlled).
 # Services: web, analysis worker, migration job. Secrets via environment references only.
+# Production sandbox verification is not configured here: sandbox-worker.ts
+# produces synthetic checks and is deliberately disabled in production.
 version: "3.9"
 services:
   web:
@@ -25,7 +27,14 @@ services:
     image: nexus-forge:${APP_VERSION:-dev}
     command: ["npm", "run", "worker:analysis"]
     environment:
+      NODE_ENV: production
       DATABASE_URL: ${DATABASE_URL}
+      GROQ_API_KEY: ${GROQ_API_KEY}
+      GROQ_MODEL: ${GROQ_MODEL:-openai/gpt-oss-20b}
+      GROQ_ALLOWED_MODELS: ${GROQ_ALLOWED_MODELS:-openai/gpt-oss-20b}
+      GITHUB_APP_ID: ${GITHUB_APP_ID}
+      GITHUB_APP_PRIVATE_KEY_BASE64: ${GITHUB_APP_PRIVATE_KEY_BASE64}
+      LLM_USER_KEY_MASTER_SECRET: ${LLM_USER_KEY_MASTER_SECRET}
       WORKER_CONCURRENCY: ${WORKER_CONCURRENCY:-2}
       ANALYSIS_JOB_LEASE_MS: ${ANALYSIS_JOB_LEASE_MS:-60000}
     deploy:
@@ -35,11 +44,3 @@ services:
     command: ["npx", "prisma", "migrate", "deploy"]
     environment:
       DATABASE_URL: ${DATABASE_URL}
-  sandbox-worker:
-    image: nexus-forge:${APP_VERSION:-dev}
-    command: ["npm", "run", "worker:sandbox"]
-    environment:
-      DATABASE_URL: ${DATABASE_URL}
-      SANDBOX_CHECK_TIMEOUT_MS: ${SANDBOX_CHECK_TIMEOUT_MS:-60000}
-    deploy:
-      replicas: 1
