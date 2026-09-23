@@ -45,6 +45,9 @@ dev-server*.pid
 # vercel
 .vercel
 
+# local browser-automation tool output (console logs, page snapshots)
+.playwright-mcp/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
