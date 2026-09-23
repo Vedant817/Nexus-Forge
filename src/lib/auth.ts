@@ -3,6 +3,8 @@ import 'server-only'
 import { betterAuth } from 'better-auth'
 import { prismaAdapter } from 'better-auth/adapters/prisma'
 import prisma from '@/lib/db/prisma'
+import { logStructured } from '@/lib/observability/logger'
+import config from '@/lib/config/env'
 
 const githubClientId = process.env.GITHUB_CLIENT_ID
 const githubClientSecret = process.env.GITHUB_CLIENT_SECRET
@@ -38,6 +40,48 @@ export const auth = betterAuth({
         github: {
           clientId: githubClientId,
           clientSecret: githubClientSecret,
+          // Same shape as better-auth's default GitHub mapping, plus
+          // privacy-safe diagnostics: when GitHub yields no email we log only
+          // booleans, counts, and HTTP statuses — never addresses or names —
+          // so a failed login can be distinguished (empty account vs denied
+          // scope) without touching PII.
+          getUserInfo: async (token) => {
+            const { diagnoseGitHubEmail, resolveGitHubEmail, toGitHubUser } = await import('@/lib/auth/github-userinfo')
+            const headers = {
+              'User-Agent': config.USER_AGENT,
+              authorization: `Bearer ${token.accessToken}`,
+            }
+            const profileResponse = await fetch('https://api.github.com/user', { headers, signal: AbortSignal.timeout(10_000) })
+            if (!profileResponse.ok) return null
+            const profile = (await profileResponse.json()) as {
+              id: number
+              login?: string
+              name?: string | null
+              email?: string | null
+              avatar_url?: string
+            }
+            let emailsStatus = 0
+            let emails: Array<{ email?: string; primary?: boolean; verified?: boolean }> | null = null
+            try {
+              const emailsResponse = await fetch('https://api.github.com/user/emails', { headers, signal: AbortSignal.timeout(10_000) })
+              emailsStatus = emailsResponse.status
+              if (emailsResponse.ok) {
+                const parsed: unknown = await emailsResponse.json()
+                if (Array.isArray(parsed)) emails = parsed
+              }
+            } catch {
+              emailsStatus = -1
+            }
+            const { email, emailVerified } = resolveGitHubEmail(profile, emails)
+            if (!email) {
+              logStructured('warn', '[auth] GitHub sign-in returned no email', {
+                action: 'oauth-github-email',
+                status: emailsStatus,
+                code: diagnoseGitHubEmail(emailsStatus, emails),
+              })
+            }
+            return toGitHubUser(profile, email, emailVerified)
+          },
         },
       }
     : {},
