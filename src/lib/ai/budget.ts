@@ -14,6 +14,8 @@ export type AiTelemetryContext = {
   promptId?: string
   promptVersion?: string
   schemaVersion?: string
+  keySource?: 'user' | 'platform'
+  keyFingerprint?: string
 }
 
 export type AiBudgetReservation = AiTelemetryContext & {
@@ -190,6 +192,8 @@ export async function recordAiUsageEvent(
       finishReason: result.finishReason,
       responseId: result.responseId,
       attemptCount: result.attemptCount,
+      keySource: context.keySource,
+      keyFingerprint: context.keyFingerprint,
       reservationId,
       inputTokens: result.inputTokens,
       outputTokens: result.outputTokens,

@@ -20,6 +20,9 @@ export type AuditAction =
   | 'approval_decision'
   | 'billing_transition'
   | 'support_access'
+  | 'byok_key_saved'
+  | 'byok_key_validated'
+  | 'byok_key_deleted'
   | 'error'
 
 export type AuditContext = {

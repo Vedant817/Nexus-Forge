@@ -275,6 +275,10 @@ export async function runAgentViaAiSdk<T>(
     if (!resolvedKey.apiKey && !context?.testLanguageModel) {
       throw new ModelConfigurationError(`No API key is configured for provider '${requestedProvider}'.`)
     }
+    if (telemetryContext && resolvedKey.source) {
+      telemetryContext.keySource = resolvedKey.source
+      telemetryContext.keyFingerprint = resolvedKey.fingerprint
+    }
 
     const languageModel = context?.testLanguageModel ?? createLanguageModel({ provider: requestedProvider, model: requestedModel }, resolvedKey.apiKey ?? '')
     responseProvider = typeof languageModel === 'string' ? undefined : languageModel.provider
