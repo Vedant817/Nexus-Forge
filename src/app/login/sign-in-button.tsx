@@ -10,7 +10,9 @@ export function SignInButton({ callbackURL }: { callbackURL: string }) {
   async function signIn() {
     setPending(true)
     setError(null)
-    const result = await authClient.signIn.social({ provider: 'github', callbackURL })
+    // Route OAuth failures back here so the login page can explain them;
+    // otherwise better-auth drops users on a bare error URL with no retry.
+    const result = await authClient.signIn.social({ provider: 'github', callbackURL, errorCallbackURL: '/login' })
     if (result.error) {
       setError(result.error.message ?? 'Unable to start GitHub sign-in.')
       setPending(false)
