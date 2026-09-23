@@ -1,3 +1,4 @@
+import { ModelConfigurationError } from '@/lib/ai/errors'
 import type { ModelCatalogEntry, ProviderId, StructuredOutputCapability } from './types'
 
 const LIST_TIMEOUT_MS = 10_000
@@ -134,13 +135,34 @@ export async function getCachedCatalog(provider: ProviderId, apiKey: string, ttl
     const entries = await (await import('./registry')).PROVIDER_REGISTRY[provider].listModels(apiKey)
     catalogCache.set(provider, { entries, fetchedAt: Date.now() })
     return { entries, fetchedAt: new Date().toISOString(), stale: false }
-  } catch {
+  } catch (error) {
     if (cached) return { entries: cached.entries, fetchedAt: new Date(cached.fetchedAt).toISOString(), stale: true }
-    throw new Error(`Unable to load ${provider} models. Check the provider key or try again.`)
+    // Preserve provider status (401/403 = bad key) for the route to map.
+    throw error instanceof Error ? error : new Error(`Unable to load ${provider} models. Check the provider key or try again.`)
   }
 }
 
 export function clearCatalogCache(provider?: ProviderId): void {
   if (provider) catalogCache.delete(provider)
   else catalogCache.clear()
+}
+
+/**
+ * Live catalog membership check for admission paths (enqueue, project
+ * defaults). Explicit allowlist entries skip the network; everything else
+ * must appear in the provider's current catalog or fail closed. Unknown
+ * model IDs are rejected here, never at worker time.
+ */
+export async function assertModelAdmitted(provider: ProviderId, model: string, userId: string): Promise<void> {
+  const { isAllowlisted } = await import('./resolve')
+  if (isAllowlisted(provider, model)) return
+  const { resolveEffectiveApiKey } = await import('../byok-resolver')
+  const resolved = await resolveEffectiveApiKey({ provider, userId })
+  if (!resolved.apiKey) {
+    throw new ModelConfigurationError(`No API key is configured for provider '${provider}'. Add one in Settings → AI Models.`)
+  }
+  const catalog = await getCachedCatalog(provider, resolved.apiKey)
+  if (!catalog.entries.some((entry) => entry.model === model)) {
+    throw new ModelConfigurationError(`Unknown model '${model}' for provider '${provider}'. Refresh the model list.`)
+  }
 }

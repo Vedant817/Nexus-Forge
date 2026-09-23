@@ -63,9 +63,22 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       select: { repoUrl: true, prUrl: true, editRevision: true, githubBindingStatus: true, githubRepositoryFullName: true },
     })
     if (!current) return NextResponse.json({ error: 'Project not found' }, { status: 404 })
-    const { expectedRevision, ...changes } = parsed.data
+    const { expectedRevision, llmProvider, llmModel, ...changes } = parsed.data
     if (expectedRevision !== current.editRevision) {
       return NextResponse.json({ error: 'Project changed in another session. Reload before saving.', currentRevision: current.editRevision }, { status: 409 })
+    }
+    if ((llmProvider ?? null) !== null || (llmModel ?? null) !== null) {
+      if (!llmProvider || !llmModel) {
+        return NextResponse.json({ error: 'Provider and model must be set together, or both cleared.' }, { status: 400 })
+      }
+      try {
+        const { assertModelAllowed } = await import('@/lib/ai/providers/resolve')
+        assertModelAllowed(llmProvider, llmModel)
+        const { assertModelAdmitted } = await import('@/lib/ai/providers/model-catalog')
+        await assertModelAdmitted(llmProvider, llmModel, access.value.user.id)
+      } catch (error) {
+        return NextResponse.json({ error: error instanceof Error ? error.message : 'Unknown model for provider.' }, { status: 400 })
+      }
     }
 
     const identity = resolveRepositoryIdentity(
@@ -83,7 +96,13 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
     const updated = await prisma.project.updateMany({
       where: { id, ownerId: access.value.user.id, editRevision: current.editRevision },
-      data: { ...changes, githubRepositoryFullName: identity.fullName, editRevision: { increment: 1 } },
+      data: {
+        ...changes,
+        githubRepositoryFullName: identity.fullName,
+        ...(llmProvider !== undefined ? { llmProvider } : {}),
+        ...(llmModel !== undefined ? { llmModel } : {}),
+        editRevision: { increment: 1 },
+      },
     })
     if (updated.count !== 1) return NextResponse.json({ error: 'Project changed in another session. Reload before saving.' }, { status: 409 })
     const project = await prisma.project.findUnique({ where: { id, ownerId: access.value.user.id } })

@@ -17,6 +17,8 @@ export const projectPathExclusionSchema = z.string().min(1).max(300).refine(
 export const updateProjectSchema = z.object({
   expectedRevision: z.number().int().nonnegative(),
   excludedPaths: z.array(projectPathExclusionSchema).max(100).optional(),
+  llmProvider: z.enum(['groq', 'openai', 'anthropic', 'google', 'moonshot', 'deepseek']).nullable().optional(),
+  llmModel: z.string().min(1).max(200).nullable().optional(),
   name: z.string().min(1).max(100).optional(),
   goal: z.string().max(5000).optional(),
   repoUrl: z.string().max(500).optional(),

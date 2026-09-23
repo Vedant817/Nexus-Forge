@@ -44,7 +44,7 @@ describe('POST run-analysis', () => {
     expect(response.status).toBe(202)
     expect(response.headers.get('location')).toBe('/api/projects/project-1/runs/run-1')
     await expect(response.json()).resolves.toEqual({ runId: 'run-1', status: 'QUEUED' })
-    expect(mocks.enqueueAnalysis).toHaveBeenCalledWith('project-1', 'user-1')
+    expect(mocks.enqueueAnalysis).toHaveBeenCalledWith('project-1', 'user-1', undefined)
   })
 
   it('returns the active durable run id for concurrent enqueue races', async () => {

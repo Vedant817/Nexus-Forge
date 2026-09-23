@@ -10,7 +10,7 @@ export default function TrustCenterPage() {
         <CardHeader><CardTitle>Just-in-time disclosure</CardTitle></CardHeader>
         <CardContent className="space-y-2 text-sm">
           <p>Deterministic-only runs contact no model provider. They produce sealed evidence, scorecards, and dependency maps.</p>
-          <p>When external inference is enabled, redacted source excerpts, repository inventory, and PR context go to Groq (model per run manifest) solely to generate explanations, workflows, and drafts. Secret scanning reduces risk but cannot guarantee complete removal.</p>
+          <p>When external inference is enabled, redacted source excerpts, repository inventory, and PR context go to the selected provider shown in the run manifest (Groq, OpenAI, Anthropic, Google, Moonshot, or DeepSeek) solely to generate explanations, workflows, and drafts. Secret scanning reduces risk but cannot guarantee complete removal. API keys are stored encrypted, shown only as the last 4 characters, and never logged.</p>
           <p>Every run records provider and model identity plus the privacy decision in its admission manifest.</p>
         </CardContent>
       </Card>

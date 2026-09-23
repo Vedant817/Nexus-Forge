@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { MODEL_PROVIDERS, ModelSelector, type ModelSelection } from "@/components/model-selector"
 import { fetchApiJson } from "@/lib/client/api-response"
 
 interface Source {
@@ -34,6 +35,8 @@ export default function IntakePage() {
   const [editRevision, setEditRevision] = useState(0)
   const [excludedPaths, setExcludedPaths] = useState("")
   const [runAcknowledged, setRunAcknowledged] = useState(false)
+  const [runModel, setRunModel] = useState<ModelSelection | null>(null)
+  const [projectDefault, setProjectDefault] = useState<ModelSelection | null>(null)
   const [profilePreset, setProfilePreset] = useState("Standard")
   const [profileVersion, setProfileVersion] = useState<number | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -52,10 +55,15 @@ export default function IntakePage() {
         }
       })
       .catch(() => {})
-    fetchApiJson<{ repoUrl?: string; prUrl?: string; editRevision?: number; excludedPaths?: string[] }>(`/api/projects/${id}`, undefined, "Unable to load project URLs.")
+    fetchApiJson<{ repoUrl?: string; prUrl?: string; editRevision?: number; excludedPaths?: string[]; llmProvider?: string | null; llmModel?: string | null }>(`/api/projects/${id}`, undefined, "Unable to load project URLs.")
       .then(data => {
         setRepoUrl(data.repoUrl || "")
         setPrUrl(data.prUrl || "")
+        if (data.llmProvider && data.llmModel && (MODEL_PROVIDERS as readonly string[]).includes(data.llmProvider)) {
+          const projectSelection: ModelSelection = { provider: data.llmProvider as ModelSelection['provider'], model: data.llmModel }
+          setProjectDefault(projectSelection)
+          setRunModel(projectSelection)
+        }
         setExcludedPaths((data.excludedPaths ?? []).join('\n'))
         if (!Number.isSafeInteger(data.editRevision)) throw new Error("Project response did not include a valid edit revision.")
         setEditRevision(data.editRevision!)
@@ -306,7 +314,14 @@ export default function IntakePage() {
         <Card className="mb-6">
           <CardHeader><CardTitle>Before you run</CardTitle></CardHeader>
           <CardContent className="space-y-3 text-sm">
-            <p className="text-muted-foreground">Deterministic-only runs contact no model provider. If external inference is enabled, redacted excerpts go to Groq solely to generate explanations and drafts. Secret scanning cannot guarantee complete removal. The run manifest records provider and privacy decisions.</p>
+            <p className="text-muted-foreground">Deterministic-only runs contact no model provider. If external inference is enabled, redacted excerpts go to the selected provider shown in the run manifest solely to generate explanations and drafts. Secret scanning cannot guarantee complete removal.</p>
+            <ModelSelector value={runModel} onChange={setRunModel} disabled={isAnalyzing} />
+            {projectDefault && (
+              <div className="flex items-center gap-2 text-xs">
+                <span className="text-muted-foreground">Project default: {projectDefault.provider} · {projectDefault.model}</span>
+                <Button variant="link" size="sm" className="h-auto p-0 text-xs" onClick={() => setRunModel(projectDefault)}>Reset to project default</Button>
+              </div>
+            )}
             <label className="flex items-center gap-2 text-xs">
               <input type="checkbox" checked={runAcknowledged} onChange={e => setRunAcknowledged(e.target.checked)} />
               I understand what data leaves the workspace and why.
@@ -316,7 +331,11 @@ export default function IntakePage() {
                 setIsAnalyzing(true)
                 setError("")
                 try {
-                  const run = await fetchApiJson<{ runId?: string; status?: string }>(`/api/projects/${params.id}/run-analysis`, { method: "POST" }, "Unable to start analysis.")
+                  const run = await fetchApiJson<{ runId?: string; status?: string }>(`/api/projects/${params.id}/run-analysis`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: runModel ? JSON.stringify({ provider: runModel.provider, model: runModel.model }) : undefined,
+                  }, "Unable to start analysis.")
                   if (!run.runId || typeof run.status !== "string") throw new Error("Analysis start returned an invalid response.")
                   router.push(`/projects/${params.id}`)
                 } catch (cause) {

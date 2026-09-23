@@ -42,6 +42,8 @@ const runSnapshotSchema = z.object({
     githubRepositoryId: z.string().nullable().optional(),
     githubInstallationId: z.string().nullable().optional(),
     githubBindingStatus: z.string().optional(),
+    llmProvider: z.string().nullable().optional(),
+    llmModel: z.string().nullable().optional(),
   }).strict(),
   sources: z.array(z.object({
     id: z.string(), type: z.string(), title: z.string(), content: z.string(),

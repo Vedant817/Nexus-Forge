@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { ErrorBoundary } from "@/components/ErrorBoundary"
 import { GitHubConnectionCard } from "@/components/github-connection-card"
+import { ModelProviderCard } from "@/components/model-provider-card"
 import { PrivacyPolicyCard } from "@/components/privacy-policy-card"
 import { SetupChecklist } from "@/components/setup-checklist"
 import { PilotLoopCard } from "@/components/pilot-loop-card"
@@ -53,6 +54,8 @@ interface ProjectDetail {
   ingestionSuspendedAt?: string | null
   inferenceSuspendedAt?: string | null
   excludedPaths?: string[]
+  llmProvider?: string | null
+  llmModel?: string | null
   editRevision: number
   sources: { id: string; type: string; title: string; quarantineStatus?: string }[]
   knowledge: Record<string, unknown> | null
@@ -319,6 +322,13 @@ export default function ProjectPage() {
         </Suspense>
 
         <PilotLoopCard projectId={project.id} latestRunId={project.analysisRuns?.[0]?.id} />
+
+        <ModelProviderCard
+          projectId={project.id}
+          editRevision={project.editRevision}
+          llmProvider={project.llmProvider}
+          llmModel={project.llmModel}
+        />
 
         <PrivacyPolicyCard
           projectId={project.id}

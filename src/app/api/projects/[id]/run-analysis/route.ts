@@ -1,10 +1,16 @@
 import { NextResponse } from 'next/server'
+import { z } from 'zod'
 import prisma from '@/lib/db/prisma'
 import { requireProjectAccess } from '@/lib/auth/authorization'
 import { requireTenantAction } from '@/lib/auth/tenancy'
 import { checkRateLimit } from '@/lib/security/rate-limit'
 import { logStructured } from '@/lib/observability/logger'
 import { ActiveAnalysisRunError, enqueueAnalysis } from '@/lib/execution/enqueue-analysis'
+
+const runOverrideSchema = z.object({
+  provider: z.enum(['groq', 'openai', 'anthropic', 'google', 'moonshot', 'deepseek']).optional(),
+  model: z.string().min(1).max(200).optional(),
+}).strict()
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -38,8 +44,29 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     }
   }
 
+  // An empty POST body means "no override" (existing callers send none).
+  let override: { provider: 'groq' | 'openai' | 'anthropic' | 'google' | 'moonshot' | 'deepseek'; model: string } | undefined
+  const rawBody = await request.text().catch(() => '')
+  if (rawBody.trim()) {
+    if (Buffer.byteLength(rawBody, 'utf8') > 4 * 1024) {
+      return NextResponse.json({ error: 'Request body too large.' }, { status: 413 })
+    }
+    let value: unknown
+    try {
+      value = JSON.parse(rawBody)
+    } catch {
+      return NextResponse.json({ error: 'Request must be valid JSON.' }, { status: 400 })
+    }
+    const parsed = runOverrideSchema.safeParse(value)
+    if (!parsed.success) return NextResponse.json({ error: 'Invalid model override. Provide provider and model together.' }, { status: 400 })
+    if ((parsed.data.provider && !parsed.data.model) || (!parsed.data.provider && parsed.data.model)) {
+      return NextResponse.json({ error: 'Provider and model must be provided together.' }, { status: 400 })
+    }
+    if (parsed.data.provider && parsed.data.model) override = { provider: parsed.data.provider, model: parsed.data.model }
+  }
+
   try {
-    const result = await enqueueAnalysis(id, access.value.user.id)
+    const result = await enqueueAnalysis(id, access.value.user.id, override)
     if (idempotencyKey) {
       try {
         await prisma.idempotencyKey.create({ data: { key: idempotencyKey, userId: access.value.user.id, projectId: id, runId: result.runId } })

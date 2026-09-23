@@ -45,9 +45,32 @@ function parseAllowlist(raw: string | readonly string[] | undefined): Array<{ pr
 }
 
 /**
+ * True when an explicit admin allowlist covers the model. Explicit entries
+ * are authoritative: no catalog fetch is needed to admit them.
+ */
+export function isAllowlisted(provider: ProviderId, model: string): boolean {
+  const global = parseAllowlist(config.LLM_ALLOWED_MODELS)
+  if (global.length > 0) {
+    return global.some((entry) => (entry.provider === null || entry.provider === provider) && entry.model === model)
+  }
+  const scoped = parseAllowlist(config[`${envName(provider)}_ALLOWED_MODELS` as keyof typeof config] as string | readonly string[] | undefined)
+  if (scoped.length > 0) {
+    return scoped.some((entry) => (entry.provider === null || entry.provider === provider) && entry.model === model)
+  }
+  if (provider === 'groq') {
+    // Legacy path: GROQ_ALLOWED_MODELS defaults to GROQ_MODEL only.
+    const allowed = config.GROQ_ALLOWED_MODELS ?? []
+    return allowed.includes(model) || model === config.GROQ_MODEL
+  }
+  return false
+}
+
+/**
  * Fail-closed model admission. Precedence: LLM_ALLOWED_MODELS, then
  * <PROVIDER>_ALLOWED_MODELS, then legacy GROQ semantics for groq, then the
  * provider catalog minus structured-output exclusions for everyone else.
+ * Non-groq providers without an explicit allowlist entry are admitted here
+ * but MUST still pass assertModelAdmitted (live catalog) before enqueue.
  */
 export function assertModelAllowed(provider: ProviderId, model: string): void {
   if (!isProviderId(provider)) {
@@ -60,27 +83,11 @@ export function assertModelAllowed(provider: ProviderId, model: string): void {
   if (exclusion) {
     throw new ModelConfigurationError(`Model '${model}' for provider '${provider}' cannot satisfy structured output (${exclusion}).`)
   }
-  const global = parseAllowlist(config.LLM_ALLOWED_MODELS)
-  if (global.length > 0) {
-    const allowed = global.some((entry) => (entry.provider === null || entry.provider === provider) && entry.model === model)
-    if (!allowed) throw new ModelConfigurationError(`Model '${model}' for provider '${provider}' is not in LLM_ALLOWED_MODELS.`)
-    return
-  }
-  const scoped = parseAllowlist(config[`${envName(provider)}_ALLOWED_MODELS` as keyof typeof config] as string | readonly string[] | undefined)
-  if (scoped.length > 0) {
-    const allowed = scoped.some((entry) => (entry.provider === null || entry.provider === provider) && entry.model === model)
-    if (!allowed) throw new ModelConfigurationError(`Model '${model}' for provider '${provider}' is not in ${envName(provider)}_ALLOWED_MODELS.`)
-    return
-  }
+  if (isAllowlisted(provider, model)) return
   if (provider === 'groq') {
-    // Legacy path: GROQ_ALLOWED_MODELS defaults to GROQ_MODEL only.
-    const allowed = config.GROQ_ALLOWED_MODELS ?? []
-    if (!allowed.includes(model) && model !== config.GROQ_MODEL) {
-      throw new ModelConfigurationError(`Model '${model}' for provider 'groq' is not in GROQ_ALLOWED_MODELS.`)
-    }
+    throw new ModelConfigurationError(`Model '${model}' for provider 'groq' is not in GROQ_ALLOWED_MODELS.`)
   }
-  // Other providers without an explicit allowlist admit catalog models
-  // (exclusions already applied above).
+  // Other providers: catalog membership is verified asynchronously at admission.
 }
 
 /** API key for a provider from platform env. BYOK user keys take precedence at call sites. */

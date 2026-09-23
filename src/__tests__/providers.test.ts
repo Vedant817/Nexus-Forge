@@ -92,11 +92,26 @@ describe('model resolution', () => {
     delete process.env.LLM_ALLOWED_MODELS
   })
 
-  it('fails closed on off-allowlist and excluded models', () => {
+  it('fails closed on off-allowlist groq models and excluded models', () => {
     process.env.LLM_ALLOWED_MODELS = 'openai:gpt-4o-mini'
-    expect(() => assertModelAllowed('openai', 'gpt-4o')).toThrow(/LLM_ALLOWED_MODELS/)
+    // Non-groq models without an allowlist entry defer to live-catalog
+    // verification (assertModelAdmitted) rather than throwing here.
+    expect(() => assertModelAllowed('openai', 'gpt-4o')).not.toThrow()
     expect(() => assertModelAllowed('openai', 'gpt-4o-mini')).not.toThrow()
     expect(() => assertModelAllowed('deepseek', 'deepseek-reasoner')).toThrow(/structured output/)
+    delete process.env.LLM_ALLOWED_MODELS
+    process.env.GROQ_ALLOWED_MODELS = 'allowed-model'
+    expect(() => assertModelAllowed('groq', 'other-model')).toThrow(/GROQ_ALLOWED_MODELS/)
+    delete process.env.GROQ_ALLOWED_MODELS
+  })
+
+  it('verifies catalog membership asynchronously before admission', async () => {
+    const { assertModelAdmitted } = await import('@/lib/ai/providers/model-catalog')
+    process.env.OPENAI_API_KEY = 'test-key'
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ data: [{ id: 'gpt-4o-mini' }] }), { status: 200 })))
+    await expect(assertModelAdmitted('openai', 'gpt-4o-mini', 'user-1')).resolves.toBeUndefined()
+    await expect(assertModelAdmitted('openai', 'gpt-4o', 'user-1')).rejects.toThrow(/Unknown model/)
+    delete process.env.OPENAI_API_KEY
   })
 })
 

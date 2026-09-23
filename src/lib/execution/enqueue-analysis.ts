@@ -2,7 +2,9 @@ import { JobKind, type Prisma } from '@prisma/client'
 import prisma from '@/lib/db/prisma'
 import { redactSecrets } from '@/lib/security/secret-redaction'
 import { contentHash } from './hash'
-import { assertModelAllowed, getDefaultModelRef } from '@/lib/ai/providers/resolve'
+import { ModelConfigurationError } from '@/lib/ai/errors'
+import { assertModelAllowed, getDefaultModelRef, type ResolvedModelRef } from '@/lib/ai/providers/resolve'
+import { isProviderId } from '@/lib/ai/providers/types'
 import { preflightAdmission } from '@/lib/execution/preflight'
 import {
   ANALYSIS_STAGES,
@@ -25,7 +27,9 @@ function isUniqueConstraintError(error: unknown): boolean {
   return Boolean(error && typeof error === 'object' && 'code' in error && error.code === 'P2002')
 }
 
-export async function enqueueAnalysis(projectId: string, ownerId: string): Promise<EnqueuedAnalysis> {
+export type EnqueueModelOverride = { provider: string; model: string }
+
+export async function enqueueAnalysis(projectId: string, ownerId: string, override?: EnqueueModelOverride): Promise<EnqueuedAnalysis> {
   const project = await prisma.project.findUnique({
     where: { id: projectId, ownerId },
     include: { sources: { orderBy: { createdAt: 'asc' } } },
@@ -40,6 +44,22 @@ export async function enqueueAnalysis(projectId: string, ownerId: string): Promi
     throw new Error('Connect the repository through the GitHub App before running analysis.')
   }
 
+  // Effective model: per-run override → project default → platform default.
+  // Every branch is validated to a ResolvedModelRef so unknown providers and
+  // overlong ids fail closed before any budget, job, or manifest is created.
+  const defaultRef = getDefaultModelRef()
+  const toModelRef = (provider: string, model: string): ResolvedModelRef => {
+    if (!isProviderId(provider) || !model || model.length > 200) {
+      throw new ModelConfigurationError(`Unknown model '${model}' for provider '${provider}'. Refresh the model list.`)
+    }
+    return { provider, model }
+  }
+  const requestedRef = override
+    ? toModelRef(override.provider, override.model)
+    : project.llmProvider && project.llmModel
+      ? toModelRef(project.llmProvider, project.llmModel)
+      : defaultRef
+
   // The snapshot is immutable and secret-redacted before being duplicated into run history.
   const inputSnapshot = {
     project: {
@@ -51,6 +71,8 @@ export async function enqueueAnalysis(projectId: string, ownerId: string): Promi
       githubRepositoryId: project.githubRepositoryId ?? null,
       githubInstallationId: project.githubInstallationId ?? null,
       githubBindingStatus: project.githubBindingStatus ?? 'unbound',
+      llmProvider: requestedRef.provider,
+      llmModel: requestedRef.model,
     },
     sources: project.sources.map((source) => ({
       id: source.id,
@@ -101,20 +123,23 @@ export async function enqueueAnalysis(projectId: string, ownerId: string): Promi
     prUrl: inputSnapshot.project.prUrl,
     sources: project.sources.map((source) => ({ id: source.id, type: source.type, title: source.title, content: source.rawContent })),
   }
-  const defaultRef = getDefaultModelRef()
   const preflight = preflightAdmission({
     project: preflightProject,
     actorId: ownerId,
     inputSnapshot,
     inputHash,
-    modelConfig: { provider: defaultRef.provider, model: defaultRef.model },
+    modelConfig: { provider: requestedRef.provider, model: requestedRef.model },
     entitlement,
     profile,
   })
   const processingMode = preflight.processingMode
   const inferenceEnabled = processingMode === 'INFERENCE_ENABLED'
-  if (inferenceEnabled) assertModelAllowed(defaultRef.provider, defaultRef.model)
-  const modelConfig = inferenceEnabled ? { provider: defaultRef.provider, model: defaultRef.model } : { provider: 'none', model: 'deterministic-only' }
+  if (inferenceEnabled) {
+    assertModelAllowed(requestedRef.provider, requestedRef.model)
+    const { assertModelAdmitted } = await import('@/lib/ai/providers/model-catalog')
+    await assertModelAdmitted(requestedRef.provider, requestedRef.model, ownerId)
+  }
+  const modelConfig = inferenceEnabled ? { provider: requestedRef.provider, model: requestedRef.model } : { provider: 'none', model: 'deterministic-only' }
   const { manifest, digest } = (() => {
     const resolved = preflightAdmission({
       project: preflightProject,

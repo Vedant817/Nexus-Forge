@@ -87,6 +87,50 @@ describe('analysis enqueue concurrency mapping', () => {
     expect(mocks.transaction).not.toHaveBeenCalled()
   })
 
+  it('persists a per-run model override in config, snapshot, and manifest', async () => {
+    process.env.LLM_ALLOWED_MODELS = 'openai:gpt-4o-mini'
+    mocks.findProject.mockResolvedValue({
+      id: 'project-1', ownerId: 'user-1', name: 'Project', goal: 'Goal',
+      repoUrl: 'https://github.com/owner/repo', prUrl: '', sources: [],
+      githubRepositoryPrivate: false, externalInferenceEnabled: true,
+      externalInferenceAuthorizedBy: 'user-1', externalInferenceAuthorizedAt: new Date(),
+      ingestionSuspendedAt: null, inferenceSuspendedAt: null,
+      llmProvider: 'groq', llmModel: 'legacy-model',
+    })
+    let createData: Record<string, unknown> | undefined
+    mocks.transaction.mockImplementation(async (callback) => callback({
+      analysisRun: { create: vi.fn(async ({ data }) => { createData = data; return { id: 'run-1' } }) },
+      job: { create: vi.fn() },
+      project: { update: vi.fn() },
+    }))
+
+    await enqueueAnalysis('project-1', 'user-1', { provider: 'openai', model: 'gpt-4o-mini' })
+    expect(createData).toMatchObject({
+      modelConfig: { provider: 'openai', model: 'gpt-4o-mini' },
+      modelConfigVersion: 'llm-v2',
+    })
+    const snapshot = createData?.inputSnapshot as { project: { llmProvider: string; llmModel: string } }
+    expect(snapshot.project.llmProvider).toBe('openai')
+    expect(snapshot.project.llmModel).toBe('gpt-4o-mini')
+    const manifest = createData?.admissionManifest as { modelConfig: { provider: string; model: string } }
+    expect(manifest.modelConfig).toEqual({ provider: 'openai', model: 'gpt-4o-mini' })
+    delete process.env.LLM_ALLOWED_MODELS
+  })
+
+  it('rejects unknown override models before creating jobs or manifests', async () => {
+    mocks.findProject.mockResolvedValue({
+      id: 'project-1', ownerId: 'user-1', name: 'Project', goal: 'Goal',
+      repoUrl: 'https://github.com/owner/repo', prUrl: '', sources: [],
+      githubRepositoryPrivate: false, externalInferenceEnabled: true,
+      externalInferenceAuthorizedBy: 'user-1', externalInferenceAuthorizedAt: new Date(),
+      ingestionSuspendedAt: null, inferenceSuspendedAt: null,
+    })
+    await expect(enqueueAnalysis('project-1', 'user-1', { provider: 'openai', model: 'nope' })).rejects.toMatchObject({
+      code: 'AI_CONFIGURATION_ERROR',
+    })
+    expect(mocks.transaction).not.toHaveBeenCalled()
+  })
+
   it('rejects enqueue when the configured model is outside the explicit allowlist', async () => {
     const previousModel = process.env.GROQ_MODEL
     const previousAllowed = process.env.GROQ_ALLOWED_MODELS
