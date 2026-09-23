@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import prisma from '@/lib/db/prisma'
 import type { WorkflowTask } from '@/types'
 import { requireProjectAccess } from '@/lib/auth/authorization'
+import { logStructured } from '@/lib/observability/logger'
 import { resolveWorkflowState } from '@/lib/workflows/workflow-state'
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -60,8 +61,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
         'Content-Disposition': 'attachment; filename=".cursorrules"',
       },
     })
-  } catch (error) {
-    console.error('Failed to export cursorrules:', error)
+  } catch {
+    logStructured('error', 'Failed to export cursorrules', { projectId: id })
     return NextResponse.json({ error: 'Failed to export cursorrules' }, { status: 500 })
   }
 }

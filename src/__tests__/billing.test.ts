@@ -39,12 +39,21 @@ describe('Stripe billing webhooks', () => {
   })
 
   it('processes each event once and survives duplicates and reorder', async () => {
-    const body = JSON.stringify({ id: 'evt_1', object: 'event', type: 'customer.subscription.updated', data: { object: { id: 'sub_1', customer: 'cus_1', status: 'active', items: { data: [{ price: { id: 'price_x' } }] }, current_period_end: Math.floor(Date.now() / 1000) + 3600, cancel_at_period_end: false } } })
+    process.env.STRIPE_PRICE_PILOT_MONTHLY = 'price_pilot'
+    const body = JSON.stringify({ id: 'evt_1', object: 'event', type: 'customer.subscription.updated', data: { object: { id: 'sub_1', customer: 'cus_1', status: 'active', items: { data: [{ price: { id: 'price_pilot' } }] }, current_period_end: Math.floor(Date.now() / 1000) + 3600, cancel_at_period_end: false } } })
     const first = await POST(stripeSignedRequest(body, 'whsec_test'))
     expect(first.status).toBe(200)
     mocks.transaction.mockRejectedValueOnce({ code: 'P2002' })
     const duplicate = await POST(stripeSignedRequest(body, 'whsec_test'))
     expect(duplicate.status).toBe(200)
     await expect(duplicate.json()).resolves.toMatchObject({ duplicate: true })
+    delete process.env.STRIPE_PRICE_PILOT_MONTHLY
+  })
+
+  it('rejects unknown price ids instead of silently downgrading to pilot', async () => {
+    const body = JSON.stringify({ id: 'evt_2', object: 'event', type: 'customer.subscription.updated', data: { object: { id: 'sub_2', customer: 'cus_2', status: 'active', items: { data: [{ price: { id: 'price_unknown' } }] }, current_period_end: Math.floor(Date.now() / 1000) + 3600, cancel_at_period_end: false } } })
+    const response = await POST(stripeSignedRequest(body, 'whsec_test'))
+    expect(response.status).toBe(400)
+    await expect(response.json()).resolves.toMatchObject({ error: expect.stringContaining('Unknown Stripe price id') })
   })
 })

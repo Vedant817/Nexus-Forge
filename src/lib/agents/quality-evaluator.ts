@@ -6,7 +6,7 @@ const DISABLED_CHECKS = [
   'TypeScript result',
   'Lint result',
   'Secret scan result',
-  'TODO review result',
+  'Pending review markers',
 ] as const
 
 /**

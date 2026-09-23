@@ -1,6 +1,7 @@
 "use client"
 
 import { Component, type ReactNode } from "react"
+import { logStructured } from "@/lib/observability/logger"
 
 interface Props {
   children: ReactNode
@@ -21,8 +22,9 @@ export class ErrorBoundary extends Component<Props, State> {
     return { hasError: true }
   }
 
-  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    console.error("ErrorBoundary caught an error:", error, errorInfo)
+  componentDidCatch(error: Error) {
+    // Log the message only: component props in errorInfo may carry user data.
+    logStructured('error', `ErrorBoundary caught an error: ${error.message.slice(0, 500)}`)
   }
 
   render() {
@@ -32,12 +34,12 @@ export class ErrorBoundary extends Component<Props, State> {
           <div className="text-center">
             <h3 className="text-lg font-semibold mb-2">Something went wrong</h3>
             <p className="text-sm text-muted-foreground mb-4">An unexpected error occurred in this section.</p>
-            <button
-              onClick={() => this.setState({ hasError: false })}
-              className="inline-flex items-center justify-center rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90"
-            >
-              Reload
-            </button>
+              <button
+                onClick={() => this.setState({ hasError: false })}
+                className="inline-flex items-center justify-center rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+              >
+                Try again
+              </button>
           </div>
         </div>
       )

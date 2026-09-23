@@ -55,7 +55,7 @@ type GitHubFetchOptions = { timeout?: number; signal?: AbortSignal }
 async function githubFetch(path: string, options: GitHubFetchOptions = {}): Promise<Response> {
   const headers: Record<string, string> = {
     Accept: 'application/vnd.github.v3+json',
-    'User-Agent': 'nexus-forge/1.0',
+    'User-Agent': process.env.APP_CODE_VERSION ? `nexus-forge/${process.env.APP_CODE_VERSION}` : 'nexus-forge/dev',
   }
   const controller = new AbortController()
   const timeout = options?.timeout ?? 15_000

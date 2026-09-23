@@ -1,6 +1,7 @@
 import type { ClaimedJob, JobLeaseRepository } from './job-repository'
 import { LeaseLostError } from './errors'
 import { redactSecrets } from '@/lib/security/secret-redaction'
+import { logStructured } from '@/lib/observability/logger'
 import { AiBudgetExceededError } from '@/lib/ai/budget-errors'
 import { ModelBoundaryError } from '@/lib/ai/errors'
 
@@ -70,7 +71,7 @@ function logBoundedDiagnostic(job: ClaimedJob, phase: string, error: unknown): v
   const message = /(parse|schema|validation|invalid.*output|no object generated)/i.test(raw)
     ? 'Provider returned invalid structured output (details suppressed).'
     : redactSecrets(raw).slice(0, 1_000)
-  console.error(`[durable-worker] ${phase} job=${job.id} kind=${job.kind}: ${message}`)
+  logStructured('error', `[durable-worker] ${phase}: ${message}`, { jobId: job.id })
 }
 
 export type JobHandler = (job: ClaimedJob, signal: AbortSignal) => Promise<void>

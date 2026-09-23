@@ -27,10 +27,31 @@ const env = {
     return [...new Set(models)]
   },
 
+  get SUPPORT_EMAIL(): string {
+    return process.env.SUPPORT_EMAIL || ''
+  },
+  get SUPPORT_URL(): string {
+    return process.env.SUPPORT_URL || ''
+  },
+  get STATUS_URL(): string {
+    return process.env.STATUS_URL || '/api/health'
+  },
+  get APP_VERSION(): string {
+    return process.env.APP_CODE_VERSION || 'dev'
+  },
+  get USER_AGENT(): string {
+    return `nexus-forge/${env.APP_VERSION}`
+  },
+
   validate(): string[] {
     const errors: string[] = []
     if (!env.DATABASE_URL) {
       errors.push('DATABASE_URL is required')
+    }
+    if (process.env.NODE_ENV === 'production') {
+      if (!env.SUPPORT_EMAIL && !env.SUPPORT_URL) {
+        errors.push('SUPPORT_EMAIL or SUPPORT_URL is required in production')
+      }
     }
     return errors
   },

@@ -56,7 +56,7 @@ export function computeRepoMaturityScore(params: {
   }
 
   if (params.hasDocker) {
-    score += 5
+    score += 10
     positiveEvidence.push('Docker configuration present')
   } else {
     reasons.push('No Docker configuration')

@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { generateText, Output, type LanguageModel } from 'ai'
 import { createGroq } from '@ai-sdk/groq'
 import config from '@/lib/config/env'
+import { logStructured } from '@/lib/observability/logger'
 import { redactSecrets, redactStructuredValue } from '@/lib/security/secret-redaction'
 import { hasBlockingFinding, scanSecretContent, SECRET_SCANNER_VERSION } from '@/lib/security/secret-scanner'
 import { assertInferenceEnabled } from '@/lib/ai/inference-policy'
@@ -338,13 +339,13 @@ export async function runAgentViaAiSdk<T>(
           budgetSettled = true
         } catch {
           normalized = new BudgetAccountingError()
-          console.warn('[ai-boundary] Consumed AI usage could not be reconciled; the reservation remains durable.')
+          logStructured('warn', '[ai-boundary] Consumed AI usage could not be reconciled; the reservation remains durable.')
         }
       } else {
         try {
           await releaseAiBudget(reservation)
         } catch {
-          console.warn('[ai-boundary] Reserved AI budget could not be released; reconciliation is required.')
+          logStructured('warn', '[ai-boundary] Reserved AI budget could not be released; reconciliation is required.')
         }
       }
     }
@@ -394,7 +395,7 @@ function requireQualityContext(context: AgentInvocationContext | undefined): Age
   return context
 }
 
-export class VercelAiAgentRunner implements AgentRunnerAdapter {
+export class GroqAiAgentRunner implements AgentRunnerAdapter {
   async runKnowledgeDistiller(input: KnowledgeDistillerInput, context?: AgentInvocationContext): Promise<KnowledgeDistillerOutput> {
     const { knowledgeDistillerOutputSchema } = await import('@/lib/agents/agent-schemas')
     return runStage('knowledge-distiller', input, knowledgeDistillerOutputSchema, context)
@@ -441,7 +442,10 @@ let _agentRunner: AgentRunnerAdapter | null = null
 
 export function getAgentRunner(): AgentRunnerAdapter {
   if (!_agentRunner) {
-    _agentRunner = new VercelAiAgentRunner()
+    _agentRunner = new GroqAiAgentRunner()
   }
   return _agentRunner
 }
+
+/** @deprecated Use GroqAiAgentRunner. Kept for backward compatibility. */
+export const VercelAiAgentRunner = GroqAiAgentRunner

@@ -61,7 +61,7 @@ export async function createInstallationToken(input: {
       Accept: 'application/vnd.github+json',
       Authorization: `Bearer ${createGitHubAppJwt()}`,
       'X-GitHub-Api-Version': API_VERSION,
-      'User-Agent': 'nexus-forge/1.0',
+      'User-Agent': process.env.APP_CODE_VERSION ? `nexus-forge/${process.env.APP_CODE_VERSION}` : 'nexus-forge/dev',
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({

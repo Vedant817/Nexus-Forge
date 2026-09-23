@@ -2,12 +2,22 @@ import { NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import prisma from '@/lib/db/prisma'
 import { readBoundedWebhookBody, WebhookBodyTooLargeError } from '@/lib/github/webhook-security'
+import { logStructured } from '@/lib/observability/logger'
 import { GRACE_PERIOD_MS, PLAN_ALLOWANCES, planForPrice } from '@/lib/billing/plans'
 
 const MAX_BODY_BYTES = 1_000_000
 
+class UnknownStripePriceError extends Error {
+  constructor(public readonly priceId?: string) {
+    super(`Unknown Stripe price id: ${priceId ?? 'missing'}`)
+    this.name = 'UnknownStripePriceError'
+  }
+}
+
 function stripeClient(): Stripe {
-  return new Stripe(process.env.STRIPE_SECRET_KEY ?? 'sk_test_placeholder')
+  const key = process.env.STRIPE_SECRET_KEY
+  if (!key) throw new Error('STRIPE_SECRET_KEY is not configured')
+  return new Stripe(key)
 }
 
 export async function POST(request: Request) {
@@ -39,6 +49,10 @@ export async function POST(request: Request) {
         const items = (subscription.items as { data?: Array<{ price?: { id?: string } }> } | undefined)?.data ?? []
         const priceId = items[0]?.price?.id
         const plan = planForPrice(priceId)
+        if (!plan) {
+          // Fail loudly, never silently downgrade: Stripe retries non-2xx for review.
+          throw new UnknownStripePriceError(priceId)
+        }
         const allowances = PLAN_ALLOWANCES[plan] ?? PLAN_ALLOWANCES.pilot
         const status = String(subscription.status ?? 'unknown')
         const active = ['trialing', 'active'].includes(status)
@@ -75,6 +89,10 @@ export async function POST(request: Request) {
     })
     return NextResponse.json({ received: true }, { status: 200 })
   } catch (error) {
+    if (error instanceof UnknownStripePriceError) {
+      logStructured('error', 'Stripe webhook referenced an unknown price id; no entitlement change applied', { action: event.type })
+      return NextResponse.json({ error: 'Unknown Stripe price id; no entitlement change applied.' }, { status: 400 })
+    }
     if (error && typeof error === 'object' && 'code' in error && error.code === 'P2002') {
       return NextResponse.json({ received: true, duplicate: true }, { status: 200 })
     }

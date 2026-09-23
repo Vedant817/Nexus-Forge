@@ -553,6 +553,31 @@ describe('proofOfWorkAgent', () => {
     expect(result).not.toHaveProperty('proofScore')
   })
 
+  it('never claims shipped work without verified completed tasks', async () => {
+    const result = await proofOfWorkAgent({
+      projectGoal: 'Build a dashboard',
+      workflowOutput: {
+        tasks: [],
+        workflowTitle: '',
+        objective: '',
+        acceptanceCriteria: [],
+        testPlan: '',
+        suggestedAgentPrompts: [],
+        expectedFilesToChange: [],
+        reviewChecklist: [],
+      },
+      repoAnalysis: undefined,
+      releaseReport: undefined,
+      finalSummary: '',
+    })
+    expect(result.portfolioSummary).toContain('Draft')
+    expect(result.portfolioSummary).not.toContain('Built and shipped')
+    expect(result.resumeBullet).not.toContain('Built and shipped')
+    expect(result.resumeBullet).not.toContain('I just built')
+    expect(result.linkedinPost).not.toContain('I just built')
+    expect(result.interviewExplanation).not.toContain('I built')
+  })
+
   it('returns missing proof items for incomplete inputs', async () => {
     const result = await proofOfWorkAgent({
       projectGoal: '',

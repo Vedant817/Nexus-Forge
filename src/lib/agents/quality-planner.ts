@@ -13,7 +13,7 @@ export async function qualityPlanner(goal: string, userId: string): Promise<Qual
 3. Break the work into discrete units, each one file-change-sized
 4. Choose which quality criteria to enforce
 
-Current project is Nexus Forge (Next.js 16, TypeScript, Tailwind, Prisma, Lemma SDK, Zod).
+Current project is Nexus Forge (Next.js 16, TypeScript, Tailwind, Prisma, Zod).
 
 Return valid JSON matching the schema.`,
   }
@@ -28,7 +28,7 @@ Return valid JSON matching the schema.`,
 }
 
 export function getPlannerPrompt(goal: string): string {
-  return `You are a Quality Planner for the Nexus Forge project (Next.js 16, TypeScript, Tailwind, Prisma, Lemma SDK, Zod).
+  return `You are a Quality Planner for the Nexus Forge project (Next.js 16, TypeScript, Tailwind, Prisma, Zod).
 
 Goal: ${goal}
 

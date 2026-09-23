@@ -1,6 +1,6 @@
 import 'server-only'
 
-const API_ROOT = 'https://api.github.com'
+const API_ROOT = process.env.GITHUB_API_ROOT ?? 'https://api.github.com'
 const API_VERSION = process.env.GITHUB_API_VERSION ?? '2022-11-28'
 
 export class GitHubApiError extends Error {
@@ -31,7 +31,7 @@ export async function githubAppFetch(pathOrUrl: string, input: {
   accept?: string
   attempts?: number
 }): Promise<{ response: Response; telemetry: GitHubResponseTelemetry }> {
-  const url = pathOrUrl.startsWith('https://api.github.com/') ? pathOrUrl : `${API_ROOT}${pathOrUrl}`
+  const url = pathOrUrl.startsWith('https://api.github.com/') || (API_ROOT !== 'https://api.github.com' && pathOrUrl.startsWith(`${API_ROOT}/`)) ? pathOrUrl : `${API_ROOT}${pathOrUrl}`
   const maxAttempts = input.attempts ?? 4
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
@@ -43,7 +43,7 @@ export async function githubAppFetch(pathOrUrl: string, input: {
           Accept: input.accept ?? 'application/vnd.github+json',
           Authorization: `Bearer ${input.token}`,
           'X-GitHub-Api-Version': API_VERSION,
-          'User-Agent': 'nexus-forge/1.0',
+          'User-Agent': process.env.APP_CODE_VERSION ? `nexus-forge/${process.env.APP_CODE_VERSION}` : 'nexus-forge/dev',
         },
       })
       const telemetry = {

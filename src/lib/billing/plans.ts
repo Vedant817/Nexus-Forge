@@ -6,11 +6,12 @@ export const PLAN_ALLOWANCES: Record<string, { maxRunsPerDay: number; maxExports
 
 export const GRACE_PERIOD_MS = 7 * 24 * 3600_000
 
-export function planForPrice(priceId: string | null | undefined): string {
+export function planForPrice(priceId: string | null | undefined): string | null {
   const table: Record<string, string> = {
     [process.env.STRIPE_PRICE_PILOT_MONTHLY ?? '']: 'pilot',
     [process.env.STRIPE_PRICE_PRO_MONTHLY ?? '']: 'pro',
     [process.env.STRIPE_PRICE_TEAM_MONTHLY ?? '']: 'team',
   }
-  return (priceId && table[priceId]) || 'pilot'
+  if (!priceId || !(priceId in table)) return null
+  return table[priceId]
 }

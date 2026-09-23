@@ -26,7 +26,7 @@ export default function SupportPage() {
   return (
     <div className="container mx-auto px-4 py-8 max-w-2xl">
       <h1 className="text-3xl font-bold mb-2">Support and feedback</h1>
-      <p className="text-muted-foreground mb-6 text-sm">Support: pilot-support@example.test · Status: see /api/health · Incidents follow the runbooks in docs/runbooks.</p>
+      <p className="text-muted-foreground mb-6 text-sm">Support: <a className="underline" href={process.env.NEXT_PUBLIC_SUPPORT_URL || 'mailto:support@nexusforge.dev'}>{process.env.NEXT_PUBLIC_SUPPORT_URL || 'support@nexusforge.dev'}</a> · Status: <a className="underline" href="/api/health">service health</a> · Incidents follow the published runbooks.</p>
       <Card>
         <CardHeader><CardTitle>Privacy-safe feedback</CardTitle></CardHeader>
         <CardContent>
