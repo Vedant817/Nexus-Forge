@@ -36,6 +36,8 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: Generate Prisma client
+        run: npx prisma generate
       - name: Block critical runtime advisories
         run: npm run audit:ci
       - name: Generate CycloneDX SBOM
