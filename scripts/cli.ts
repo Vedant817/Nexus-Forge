@@ -1,5 +1,6 @@
 // Minimal CLI for preflight, run, status, cancel, compare, evidence export.
 // Usage: npm run cli -- preflight <projectId> | run <projectId> | ...
+import 'dotenv/config'
 const [command, ...rest] = process.argv.slice(2)
 const baseUrl = process.env.NEXUS_FORGE_URL ?? 'http://localhost:3000'
 const token = process.env.NEXUS_FORGE_TOKEN ?? ''

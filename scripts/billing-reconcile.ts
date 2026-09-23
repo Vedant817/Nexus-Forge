@@ -1,5 +1,6 @@
 // Reconciles Stripe subscription state with internal entitlements and usage.
 // Requires STRIPE_SECRET_KEY; exits quietly when billing is not configured.
+import 'dotenv/config'
 import Stripe from 'stripe'
 import prisma from '@/lib/db/prisma'
 import { PLAN_ALLOWANCES } from '@/lib/billing/plans'

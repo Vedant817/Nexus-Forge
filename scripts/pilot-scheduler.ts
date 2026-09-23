@@ -1,5 +1,6 @@
 // Pilot schedule runner (invoke weekly via cron). Triggers due schedules once;
 // enqueue prevents duplicates when a run is already active.
+import 'dotenv/config'
 import prisma from '@/lib/db/prisma'
 import { enqueueAnalysis } from '@/lib/execution/enqueue-analysis'
 import { cleanupRateLimitBuckets, reconcileOrphanedReservations } from '@/lib/execution/reconciliation'

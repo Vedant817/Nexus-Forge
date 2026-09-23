@@ -1,5 +1,6 @@
 // Dedicated sandbox worker. Only this process may execute fixed checks.
 // Web processes and LLMs never invoke Docker, shell, GitHub writes, or arbitrary network.
+import 'dotenv/config'
 import { spawn } from 'node:child_process'
 import prisma from '@/lib/db/prisma'
 import { getOrCreateSandboxKey, signEnvelope } from '@/lib/verification/envelopes'
