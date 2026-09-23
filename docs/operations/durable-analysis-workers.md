@@ -36,8 +36,11 @@ prompt queue processing or a service-level guarantee. The separate
 `pilot-weekly.yml` schedules accepted-baseline work.
 
 For that workflow, configure GitHub Actions repository secrets
-`WORKERS_DATABASE_URL`, `GROQ_API_KEY`, `GITHUB_APP_ID`, and
-`GITHUB_APP_PRIVATE_KEY_BASE64`. **BYOK requires the exact same
+`WORKERS_DATABASE_URL`, `GROQ_API_KEY`, `NF_GITHUB_APP_ID`, and
+`NF_GITHUB_APP_PRIVATE_KEY_BASE64`. GitHub Actions reserves the `GITHUB_`
+prefix for its own secrets; the workflow maps these `NF_`-prefixed secrets
+to the app's `GITHUB_APP_ID` and `GITHUB_APP_PRIVATE_KEY_BASE64` environment
+variables. **BYOK requires the exact same
 `LLM_USER_KEY_MASTER_SECRET` as the Vercel web deployment on the worker**;
 otherwise the worker cannot decrypt user keys and may fall back to platform
 keys. Set any other platform provider API keys on the worker if those providers

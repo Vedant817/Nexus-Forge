@@ -7,8 +7,10 @@ name: Workers
 # Required repository secrets (Settings -> Secrets and variables -> Actions):
 #   WORKERS_DATABASE_URL      Neon pooled connection string (same DB as Vercel)
 #   GROQ_API_KEY              Provider key for inference stages
-#   GITHUB_APP_ID             GitHub App id for repository collection
-#   GITHUB_APP_PRIVATE_KEY_BASE64  App private key, base64 form (no newlines)
+#   NF_GITHUB_APP_ID             GitHub App id for repository collection
+#   NF_GITHUB_APP_PRIVATE_KEY_BASE64  App private key, base64 form (no newlines)
+# GitHub Actions reserves GITHUB_* for its own secrets. The NF_* repository
+# secrets are mapped to the GITHUB_* environment variables the app expects.
 #
 # For BYOK runs, set LLM_USER_KEY_MASTER_SECRET to the EXACT SAME secret as
 # Vercel. The worker decrypts the selected user's key at inference time.
@@ -47,8 +49,8 @@ jobs:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           GROQ_MODEL: openai/gpt-oss-20b
           GROQ_ALLOWED_MODELS: openai/gpt-oss-20b
-          GITHUB_APP_ID: ${{ secrets.GITHUB_APP_ID }}
-          GITHUB_APP_PRIVATE_KEY_BASE64: ${{ secrets.GITHUB_APP_PRIVATE_KEY_BASE64 }}
+          GITHUB_APP_ID: ${{ secrets.NF_GITHUB_APP_ID }}
+          GITHUB_APP_PRIVATE_KEY_BASE64: ${{ secrets.NF_GITHUB_APP_PRIVATE_KEY_BASE64 }}
           GITHUB_API_VERSION: '2022-11-28'
           LLM_USER_KEY_MASTER_SECRET: ${{ secrets.LLM_USER_KEY_MASTER_SECRET }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
