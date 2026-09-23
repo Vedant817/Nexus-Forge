@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 
 vi.mock('@/lib/db/prisma', () => ({ default: {} }))
 
+import { buildContentSecurityPolicy } from '@/lib/security/headers'
 import { getSecurityHeaders } from '../../next.config'
 
 describe('activation and product quality', () => {
@@ -14,6 +15,13 @@ describe('activation and product quality', () => {
 
   it('exposes keyboard-accessible landmarks and security headers', () => {
     const headers = Object.fromEntries(getSecurityHeaders().map((header) => [header.key, header.value]))
-    expect(headers['Content-Security-Policy']).toContain("default-src 'self'")
+    expect(headers['X-Frame-Options']).toBe('DENY')
+    const csp = buildContentSecurityPolicy('test-nonce-value')
+    expect(csp).toContain("default-src 'self'")
+    expect(csp).toContain("'nonce-test-nonce-value'")
+    expect(csp).toContain("frame-ancestors 'none'")
+    const scriptSrc = csp.split(';').find((directive) => directive.trim().startsWith('script-src')) ?? ''
+    expect(scriptSrc).not.toContain('unsafe-inline')
+    expect(() => buildContentSecurityPolicy('')).toThrow()
   })
 })

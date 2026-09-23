@@ -7,7 +7,7 @@ vi.mock('@/lib/db/prisma', () => ({
 }))
 
 import { checkSeparationOfDuty } from '@/lib/enterprise/sod'
-import { isAdminIpAllowed } from '@/proxy'
+import { config as proxyConfig, isAdminIpAllowed } from '@/proxy'
 
 describe('enterprise readiness', () => {
   beforeEach(() => vi.clearAllMocks())
@@ -24,5 +24,18 @@ describe('enterprise readiness', () => {
     expect(isAdminIpAllowed('192.168.0.1')).toBe(false)
     delete process.env.IP_ALLOWLIST
     expect(isAdminIpAllowed(null)).toBe(true)
+  })
+
+  it('runs the CSP proxy on pages and APIs but not static assets', () => {
+    const sources = Array.isArray(proxyConfig.matcher) ? proxyConfig.matcher : [proxyConfig.matcher]
+    for (const source of sources) {
+      const pattern = new RegExp(`^${typeof source === 'string' ? source : source.source}$`)
+      for (const path of ['/', '/login', '/projects/abc', '/api/health', '/settings/ai-models']) {
+        expect(pattern.test(path), `${path} must pass through the proxy`).toBe(true)
+      }
+      for (const path of ['/_next/static/chunks/app.js', '/_next/image/x', '/favicon.ico']) {
+        expect(pattern.test(path), `${path} must skip the proxy`).toBe(false)
+      }
+    }
   })
 })

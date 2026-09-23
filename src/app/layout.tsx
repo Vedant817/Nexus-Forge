@@ -6,6 +6,11 @@ import { AuthControls } from "@/components/auth-controls";
 
 // validateEnv(); // Removed to prevent blocking the entire app build/runtime
 
+// All pages render dynamically: the per-request CSP nonce (src/middleware.ts)
+// only exists at request time, so prerendered HTML would carry inline scripts
+// the browser must block. Static shells would hydrate into dead controls.
+export const dynamic = 'force-dynamic'
+
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
 

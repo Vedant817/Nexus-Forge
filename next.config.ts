@@ -1,16 +1,10 @@
 import type { NextConfig } from "next";
+import { STATIC_SECURITY_HEADERS } from "./src/lib/security/headers";
 
-const securityHeaders = [
-  { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains; preload' },
-  { key: 'X-Frame-Options', value: 'DENY' },
-  { key: 'X-Content-Type-Options', value: 'nosniff' },
-  { key: 'Referrer-Policy', value: 'same-origin' },
-  { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
-  {
-    key: 'Content-Security-Policy',
-    value: "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
-  },
-]
+// NOTE: Content-Security-Policy is intentionally NOT set here. It is emitted
+// per request by src/middleware.ts with a fresh nonce; a second static CSP
+// header would also be enforced by browsers and re-block hydration.
+const securityHeaders: Array<{ key: string; value: string }> = STATIC_SECURITY_HEADERS.map((header) => ({ ...header }))
 
 const nextConfig: NextConfig = {
   turbopack: {
@@ -22,7 +16,7 @@ const nextConfig: NextConfig = {
 };
 
 export function getSecurityHeaders(): Array<{ key: string; value: string }> {
-  return securityHeaders
+  return securityHeaders.map((header) => ({ ...header }))
 }
 
 export default nextConfig;
