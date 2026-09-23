@@ -1,0 +1,36 @@
+name: Pilot weekly scheduler
+
+# Triggers due pilot schedules (e.g. weekly baselines) once; enqueue prevents
+# duplicates when a run is already active. Same free-tier model as workers.yml.
+#
+# Required repository secrets: WORKERS_DATABASE_URL (see workers.yml).
+
+on:
+  schedule:
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pilot-weekly
+  cancel-in-progress: false
+
+jobs:
+  schedule:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      NODE_ENV: production
+      DATABASE_URL: ${{ secrets.WORKERS_DATABASE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+      - name: Trigger due pilot schedules
+        run: npm run schedule:pilot
