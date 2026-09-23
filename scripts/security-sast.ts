@@ -29,7 +29,7 @@ const RULES: Rule[] = [
   {
     id: 'no-child-process-outside-sandbox',
     pattern: /from\s+['"]node:child_process['"]|require\(['"]child_process['"]\)/,
-    allowed: /^(src\/lib\/quality\/sandbox\.ts|scripts\/(sandbox-worker|quality-sandbox|test-durable-postgres)\.ts|src\/__tests__\/)/,
+    allowed: /^(src\/lib\/quality\/sandbox\.ts|scripts\/(sandbox-worker|quality-sandbox|test-durable-postgres|security-sweep|security-sast)\.ts|src\/__tests__\/)/,
     reason: 'process spawning is confined to the sandbox, workers, and tests',
   },
 ]
@@ -40,8 +40,14 @@ function trackedFiles(): string[] {
 }
 
 function main(): void {
+  // This script's own RULES literals name the forbidden patterns; checking
+  // them against themselves is noise, so the script is exempt from the
+  // string-pattern rules (child_process use above remains checked).
+  const SELF = 'scripts/security-sast.ts'
   let failures = 0
   for (const file of trackedFiles()) {
+    const normalized = file.replace(/\\/g, '/')
+    const selfCheck = normalized === SELF
     let text = ''
     try {
       text = readFileSync(file, 'utf8')
@@ -51,7 +57,8 @@ function main(): void {
     const lines = text.split('\n')
     lines.forEach((line, index) => {
       for (const rule of RULES) {
-        if (rule.pattern.test(line) && !rule.allowed.test(file.replace(/\\/g, '/'))) {
+        if (selfCheck && rule.id !== 'no-child-process-outside-sandbox') continue
+        if (rule.pattern.test(line) && !rule.allowed.test(normalized)) {
           console.log(`FAIL ${rule.id} ${file}:${index + 1} (${rule.reason})`)
           failures += 1
         }

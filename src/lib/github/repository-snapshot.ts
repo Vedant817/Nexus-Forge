@@ -4,6 +4,7 @@ import type { Prisma } from '@prisma/client'
 import prisma from '@/lib/db/prisma'
 import { contentHash } from '@/lib/execution/hash'
 import { redactSecrets } from '@/lib/security/secret-redaction'
+import { checkPromptInjection } from '@/lib/security/prompt-injection-guard'
 import { hasBlockingFinding, isExcludedPath, isHighRiskPath, scanSecretContent, SECRET_SCANNER_VERSION } from '@/lib/security/secret-scanner'
 import { createInstallationToken } from './app-auth'
 import { githubJson } from './http'
@@ -61,16 +62,26 @@ export function safePath(path: string): string {
   return withoutLeadingSlash
 }
 
-/** Exported for security tests. */
+/** Exported for security tests. Null bytes (full buffer) always mean binary;
+ * otherwise the UTF-8 decode must be clean — multibyte text (e.g. CJK) decodes
+ * without replacement characters and is NOT binary. Sampling is capped so a
+ * hostile file cannot burn worker time. */
 export function isBinaryContent(decoded: Buffer): boolean {
+  if (decoded.length === 0) return false
   if (decoded.includes(0)) return true
-  const sample = decoded.subarray(0, Math.min(decoded.length, 8_192))
-  if (sample.length === 0) return false
-  let nonText = 0
-  for (const byte of sample) {
-    if (byte < 0x09 || (byte > 0x0d && byte < 0x20) || byte > 0x7e) nonText += 1
+  const text = decoded.toString('utf8')
+  const threshold = Math.max(80, Math.floor(text.length * 0.01))
+  let replacements = 0
+  let checked = 0
+  for (const char of text) {
+    checked += 1
+    if (char === '�') {
+      replacements += 1
+      if (replacements > threshold) return true
+    }
+    if (checked >= 65_536) break
   }
-  return nonText / sample.length > 0.3
+  return replacements > 0 && replacements / checked > 0.01
 }
 
 async function collectTree(fullName: string, treeSha: string, token: string, signal?: AbortSignal): Promise<{ entries: TreeEntry[]; truncated: boolean; complete: boolean; diagnostics: string[] }> {
@@ -156,6 +167,13 @@ export async function collectRepositorySnapshot(input: {
     if (hasBlockingFinding(findings)) {
       tree.complete = false
       files.push({ path: entry.path, mode: entry.mode, objectType: entry.type, blobSha: entry.sha, size: decoded.length, status: 'quarantined', diagnostic: `Quarantined by ${SECRET_SCANNER_VERSION}: ${[...new Set(findings.map((finding) => finding.kind))].join(',').slice(0, 200)}` })
+      return
+    }
+    // Polyglot payloads can be printable yet carry instructions: a file whose
+    // text scores high-severity injection never reaches the model, even redacted.
+    if (checkPromptInjection(rawContent).severity === 'high') {
+      tree.complete = false
+      files.push({ path: entry.path, mode: entry.mode, objectType: entry.type, blobSha: entry.sha, size: decoded.length, status: 'quarantined', diagnostic: 'Quarantined: high-severity instruction patterns in file content.' })
       return
     }
     const content = redactSecrets(rawContent)

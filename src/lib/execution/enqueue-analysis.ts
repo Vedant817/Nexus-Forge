@@ -64,20 +64,28 @@ export async function enqueueAnalysis(projectId: string, ownerId: string): Promi
     throw new Error('A quarantined source must be resolved or overridden before running analysis.')
   }
   // Defense in depth: re-scan at admission so rows stored before enforcement cannot reach the model.
+  // Valid audited overrides are honored: the override is keyed by content hash, so
+  // edited content misses the lookup and is re-quarantined instead of slipping through.
   const { assessUntrustedContent, SECRET_SCANNER_VERSION: SCANNER_VERSION } = await import('@/lib/security/secret-scanner')
+  const { contentHash: sourceHash } = await import('@/lib/execution/hash')
   for (const source of project.sources) {
     const assessment = assessUntrustedContent(source.rawContent, source.title || source.type)
-    if (assessment.quarantined) {
-      await prisma.source.update({
-        where: { id: source.id },
-        data: {
-          quarantineStatus: 'QUARANTINED',
-          quarantineReason: assessment.reasons.join(',').slice(0, 500),
-          scannerVersion: SCANNER_VERSION,
-        },
+    if (!assessment.quarantined) continue
+    if (source.quarantineStatus === 'OVERRIDDEN') {
+      const override = await prisma.secretOverride.findUnique({
+        where: { projectId_contentHash: { projectId, contentHash: sourceHash(source.rawContent) } },
       })
-      throw new Error('A source failed admission scanning and was quarantined. Resolve or override it before running analysis.')
+      if (override && (!override.expiresAt || override.expiresAt.getTime() > Date.now())) continue
     }
+    await prisma.source.update({
+      where: { id: source.id },
+      data: {
+        quarantineStatus: 'QUARANTINED',
+        quarantineReason: assessment.reasons.join(',').slice(0, 500),
+        scannerVersion: SCANNER_VERSION,
+      },
+    })
+    throw new Error('A source failed admission scanning and was quarantined. Resolve or override it before running analysis.')
   }
   const inputHash = contentHash(inputSnapshot)
   const { getEffectiveEntitlement, assertEntitlementActive, reserveRunUsage } = await import('@/lib/billing/entitlements')

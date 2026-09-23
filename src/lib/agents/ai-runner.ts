@@ -139,11 +139,14 @@ function truncateUntrustedString(value: string): string {
   return `${value.slice(0, MAX_UNTRUSTED_STRING_CHARS)}\n...[truncated ${value.length - MAX_UNTRUSTED_STRING_CHARS} chars: untrusted content budget exceeded]`
 }
 
-function boundUntrustedValue(value: unknown): unknown {
+const MAX_UNTRUSTED_NESTING_DEPTH = 10
+
+function boundUntrustedValue(value: unknown, depth = 0): unknown {
+  if (depth > MAX_UNTRUSTED_NESTING_DEPTH) return '[nested too deep: withheld]'
   if (typeof value === 'string') return truncateUntrustedString(value)
-  if (Array.isArray(value)) return value.slice(0, 500).map(boundUntrustedValue)
+  if (Array.isArray(value)) return value.slice(0, 500).map((entry) => boundUntrustedValue(entry, depth + 1))
   if (value && typeof value === 'object') {
-    return Object.fromEntries(Object.entries(value).slice(0, 200).map(([key, entry]) => [key.slice(0, 200), boundUntrustedValue(entry)]))
+    return Object.fromEntries(Object.entries(value).slice(0, 200).map(([key, entry]) => [key.slice(0, 200), boundUntrustedValue(entry, depth + 1)]))
   }
   return value
 }

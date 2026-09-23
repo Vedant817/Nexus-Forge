@@ -19,6 +19,7 @@ const SECRET_PATTERNS: readonly RegExp[] = [
   /xox[baprs]-[A-Za-z0-9-]{20,}/g,
   /eyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}/g,
   /(?:pk|sk)_live_[A-Za-z0-9]{24,}/g,
+  /sk_test_[A-Za-z0-9]{24,}/g,
   /AKIA[0-9A-Z]{16}/g,
   /(?:api[-_]?key|apikey|client[-_]?secret|access[-_]?token|auth[-_]?token|secret|token|password|passwd|private[-_]?key|database[-_]?url|db[-_]?url)\s*[:=]\s*(?:"[^"\r\n]{8,}"|'[^'\r\n]{8,}'|[^\s,;]{12,})/gi,
 ]

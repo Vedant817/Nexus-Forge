@@ -44,3 +44,59 @@ export function checkPromptInjection(content: string): InjectionCheckResult {
 
   return { suspicious: true, matchedPatterns, severity }
 }
+
+const BASE64_RUN_PATTERN = /[A-Za-z0-9+/]{64,}={0,2}/g
+
+// Compact shapes that survive whitespace-stripping obfuscation
+// ("i g n o r e ..." or "ignorepreviousinstructions").
+const SQUASHED_PATTERNS: Array<{ pattern: RegExp; description: string }> = [
+  { pattern: /ignore(all)?(previous|prior)instructions/, description: 'Ignore previous instructions (obfuscated)' },
+  { pattern: /reveal(your)?(secrets?|prompts?|systemprompt)/, description: 'Reveal secrets/prompts (obfuscated)' },
+  { pattern: /disab(le|ling)(allsafety|safety|security|allsecurity)/, description: 'Disable safety (obfuscated)' },
+  { pattern: /bypass(allsafety|safety|allsecurity|security)/, description: 'Bypass safety (obfuscated)' },
+  { pattern: /(output|print)(your)?secrets/, description: 'Output secrets (obfuscated)' },
+  { pattern: /exfiltrate|sendtoserver/, description: 'Exfiltration (obfuscated)' },
+]
+
+function tryBase64Decode(run: string): string | null {
+  try {
+    const text = Buffer.from(run, 'base64').toString('utf8')
+    // Decoded output must be mostly printable text to be worth checking.
+    if (!text || /[�\0]/.test(text)) return null
+    return text
+  } catch {
+    return null
+  }
+}
+
+export interface ObfuscatedInjectionResult {
+  detected: boolean
+  matchedPatterns: string[]
+}
+
+/**
+ * Catches whitespace-stripped and base64-wrapped instruction smuggling that
+ * word-boundary regexes miss. Conservative by design: base64 runs must decode
+ * to printable text that itself scores high, and squashed text needs >= 2
+ * distinct compact shapes.
+ */
+export function checkObfuscatedInjection(content: string): ObfuscatedInjectionResult {
+  const matched: string[] = []
+
+  const squashed = content.replace(/\s+/g, '').toLowerCase()
+  if (squashed.length >= 20) {
+    const squashedHits = SQUASHED_PATTERNS.filter(({ pattern }) => pattern.test(squashed)).map(({ description }) => description)
+    if (squashedHits.length >= 2) matched.push(...squashedHits)
+  }
+
+  BASE64_RUN_PATTERN.lastIndex = 0
+  for (let match = BASE64_RUN_PATTERN.exec(content); match !== null; match = BASE64_RUN_PATTERN.exec(content)) {
+    const decoded = tryBase64Decode(match[0])
+    if (decoded && checkPromptInjection(decoded).severity === 'high') {
+      matched.push('Base64-wrapped instructions')
+      break
+    }
+  }
+
+  return { detected: matched.length > 0, matchedPatterns: [...new Set(matched)] }
+}

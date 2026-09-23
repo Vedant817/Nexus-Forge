@@ -24,3 +24,23 @@ own checkout (`src/lib/quality/sandbox.ts`), never around user repositories.
 - Secret scanning is pattern + entropy based; novel exfiltration shapes can pass. Mitigation: quarantine-by-default posture, audited overrides with expiry, output re-scan.
 - `Source.rawContent` persists server-side until project deletion; quarantined rows are masked on read and blocked from runs, and deletion purges all stores (`docs/operations/retained-field-inventory.md`).
 - The `scripts/sandbox-worker.ts` stub is fail-closed in production; real verification goes through `runQualitySandbox`.
+- Non-English prompt injection has no regex coverage; the instruction-hierarchy envelope and output allowlisting are the controls.
+- Single-pattern (below-high) injection is flagged, not quarantined; deliberate dilution is possible but must still defeat the envelope instructions and output validation.
+- Chunked credentials split for entropy evasion (not structured shapes) are not joined across lines.
+- Near-miss sandbox paths (`scripts_evil/`, `package.json.bak`) are allowed but inert: npm runs with `--ignore-scripts` and only allowlisted commands execute.
+
+## Red-team record (2026-09-23)
+
+An independent adversarial review produced 22 attack cases (`src/__tests__/secure-execution.test.ts`
+encodes the battery). Findings fixed: audited overrides clobbered by admission
+re-scan (now honored when valid, re-quarantine on content change); UTF-8 text
+falsely detected as binary (now decode-aware); split-token concatenation,
+Stripe test keys, and Slack tokens not blocking (now high severity);
+structured tokens split across lines missed (now cross-line matched);
+unbounded nesting depth in model inputs (now capped at 10); file-level
+high-severity injection reaching the model (now quarantined); base64 and
+whitespace-collapsed smuggling (now detected); base64url canonical-encoding
+forgery in onboarding state (now rejected). Non-issues confirmed by test:
+SSRF via PR full names (strict URL parsing + DB binding cross-check),
+symlink content fetch (recorded, never followed), envelope forgery/replay
+(HMAC + digest binding).

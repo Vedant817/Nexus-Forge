@@ -1,4 +1,4 @@
-import { checkPromptInjection } from './prompt-injection-guard'
+import { checkObfuscatedInjection, checkPromptInjection } from './prompt-injection-guard'
 
 export const SECRET_SCANNER_VERSION = 'secret-scanner-v1'
 
@@ -30,6 +30,8 @@ const STRUCTURED_PATTERNS: Array<{ kind: string; pattern: RegExp }> = [
   { kind: 'sendgrid_key', pattern: /SG\.[A-Za-z0-9_-]{22}\.[A-Za-z0-9_-]{43}/ },
   { kind: 'discord_webhook', pattern: /https:\/\/discord(?:app)?\.com\/api\/webhooks\/[0-9]+\/[A-Za-z0-9_-]+/ },
   { kind: 'stripe_live_key', pattern: /(?:pk|sk)_live_[A-Za-z0-9]{24,}/ },
+  { kind: 'stripe_test_key', pattern: /sk_test_[A-Za-z0-9]{24,}/ },
+  { kind: 'slack_token', pattern: /xox[baprs]-[A-Za-z0-9-]{10,}/ },
   { kind: 'aws_access_key', pattern: /AKIA[0-9A-Z]{16}/ },
   { kind: 'generic_assignment', pattern: /(?:api[-_]?key|apikey|client[-_]?secret|access[-_]?token|auth[-_]?token|secret|token|password|passwd|private[-_]?key|database[-_]?url|db[-_]?url)\s*[:=]\s*(?:"[^"\r\n]{8,}"|'[^'\r\n]{8,}'|[^\s,;]{12,})/i },
 ]
@@ -109,11 +111,25 @@ export function scanSecretContent(content: string, path?: string): SecretFinding
         break
       }
     }
-    // Split-token bypass: key and value on same line with concatenation/operators.
+    // Split-token bypass: a credential keyword joined to a value by concatenation
+    // operators reconstructs a live secret at runtime/LLM-read time, so it blocks.
     if (/secret|token|password|passwd|api[_-]?key/i.test(line) && /(\+|concat|join|join\(|\|\||&&)/.test(line)) {
-      findings.push({ kind: 'split_token_suspicious', severity: 'medium', path, line: index + 1, scannerVersion: SECRET_SCANNER_VERSION })
+      findings.push({ kind: 'split_token_suspicious', severity: 'high', path, line: index + 1, scannerVersion: SECRET_SCANNER_VERSION })
     }
   })
+  // Cross-line chunking: a structured token split across line breaks matches
+  // nothing per-line. Re-scan newline-joined text for structured shapes only
+  // (never entropy — fused prose would false-positive).
+  if (content.includes('\n')) {
+    const joined = content.split(/\r?\n/).join('')
+    for (const { kind, pattern } of STRUCTURED_PATTERNS) {
+      const source = pattern.source
+      const flags = pattern.flags.replace('g', '')
+      if (new RegExp(source, flags).test(joined) && !findings.some((finding) => finding.kind === kind)) {
+        findings.push({ kind: `${kind}:multiline`, severity: 'high', path, scannerVersion: SECRET_SCANNER_VERSION })
+      }
+    }
+  }
   // Deduplicate by kind+line to keep output bounded.
   const seen = new Set<string>()
   return findings.filter((finding) => {
@@ -145,15 +161,17 @@ export function assessUntrustedContent(content: string, path?: string): Untruste
   const findings = scanSecretContent(content, path)
   const injection = checkPromptInjection(content)
   const injectionBlocked = injection.severity === 'high'
-  const quarantined = hasBlockingFinding(findings) || injectionBlocked
+  const obfuscated = checkObfuscatedInjection(content)
+  const quarantined = hasBlockingFinding(findings) || injectionBlocked || obfuscated.detected
   return {
     findings,
-    injectionSeverity: injection.severity,
-    injectionPatterns: injection.matchedPatterns,
+    injectionSeverity: obfuscated.detected ? 'high' : injection.severity,
+    injectionPatterns: obfuscated.detected ? obfuscated.matchedPatterns : injection.matchedPatterns,
     quarantined,
     reasons: [
       ...new Set(findings.map((finding) => finding.kind)),
       ...(injectionBlocked ? [`prompt-injection:${injection.matchedPatterns.slice(0, 3).join('|')}`] : []),
+      ...(obfuscated.detected ? [`prompt-injection:obfuscated:${obfuscated.matchedPatterns.slice(0, 3).join('|')}`] : []),
     ],
   }
 }

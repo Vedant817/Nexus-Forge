@@ -10,7 +10,7 @@ runnable battery, pass criteria, and last measured results (2026-09-22).
 |---|---|---|---|---|
 | 1 | `npm run typecheck` | ASVS V14, SAST | exit 0 | PASS |
 | 2 | `npm run lint` | ASVS V5/V14, SAST | exit 0 | PASS |
-| 3 | `npm test` (283 tests) | ASVS V14, LLM01/02/05/10 | exit 0 | PASS |
+| 3 | `npm test` (292 tests, incl. 22-case red-team battery) | ASVS V14, LLM01/02/05/10 | exit 0 | PASS |
 | 4 | `npm run audit:ci` | Supply chain (GHSA) | exit 0 (0 critical) | PASS |
 | 5 | `npm audit --omit=dev` review | SECURITY.md SLA | 0 critical; highs documented | PASS (0 critical, 4 highs = documented prisma-transitive exceptions) |
 | 6 | `npm run sbom` | Supply chain (CycloneDX) | valid CycloneDX JSON | PASS (CycloneDX 1.5, 825 components) |
@@ -69,3 +69,9 @@ above passes. No unjustified L1 failure remains.
 - Entropy-pattern fusion (`NAME=value` scanned as one token) caused
   over-quarantine of benign config text (`src/lib/security/secret-scanner.ts`):
   `=` removed from the token body. Verified against existing corpus tests.
+- Red-team round (22 cases): override-clobber at admission, UTF-8 binary
+  false positives, non-blocking split-tokens, `sk_test_`/`xoxb` gaps,
+  cross-line token splits, unbounded input nesting, file-level injection in
+  snapshots, base64/whitespace-smuggled instructions — all fixed and encoded
+  in `src/__tests__/secure-execution.test.ts`. See
+  `docs/security/secure-execution.md` for the full record.
