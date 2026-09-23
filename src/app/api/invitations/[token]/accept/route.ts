@@ -13,6 +13,18 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
   if (!invitation || invitation.acceptedAt || invitation.expiresAt.getTime() <= Date.now()) {
     return NextResponse.json({ error: 'Invitation is invalid or expired.' }, { status: 404 })
   }
+  // Invitations are addressed to a single email. Accepting with any other
+  // identity would silently grant the role to the wrong account (e.g. a
+  // forwarded link), so fail closed instead of binding the wrong user.
+  if (invitation.email.toLowerCase() !== session.value.email.toLowerCase()) {
+    await logAudit('membership_changed', 'Invitation email mismatch', '', {
+      actorId: session.value.id,
+      organizationId: invitation.organizationId,
+      targetId: invitation.id,
+      outcome: 'failure',
+    })
+    return NextResponse.json({ error: 'This invitation was sent to a different email address.' }, { status: 403 })
+  }
   await prisma.$transaction(async (tx) => {
     await tx.membership.upsert({
       where: { organizationId_userId: { organizationId: invitation.organizationId, userId: session.value.id } },

@@ -12,7 +12,17 @@ export async function POST(request: Request) {
   if (!process.env.STRIPE_SECRET_KEY) return NextResponse.json({ error: 'Billing is not configured.' }, { status: 503 })
   const parsed = portalSchema.safeParse(await request.json().catch(() => null))
   if (!parsed.success) return NextResponse.json({ error: 'Invalid portal request.' }, { status: 400 })
-  const membership = await prisma.membership.findFirst({ where: { userId: session.value.id }, select: { organizationId: true } })
+  // The portal returns to the caller's session after Stripe. Constrain the
+  // return target to this application's origin so a compromised or careless
+  // client cannot turn the portal into an open redirect.
+  if (new URL(parsed.data.returnUrl).origin !== new URL(request.url).origin) {
+    return NextResponse.json({ error: 'Invalid portal request.' }, { status: 400 })
+  }
+  const membership = await prisma.membership.findFirst({
+    where: { userId: session.value.id },
+    orderBy: { createdAt: 'asc' },
+    select: { organizationId: true },
+  })
   const customer = await prisma.billingCustomer.findFirst({
     where: membership ? { organizationId: membership.organizationId } : { userId: session.value.id },
     select: { stripeCustomerId: true },
